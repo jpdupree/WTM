@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: #0b0d0f;
+  color: #e7eaee;
+}
+
+/* Overlay routes opt into transparent background via the .overlay class on <body>. */
+body.overlay {
+  background: transparent !important;
+}
