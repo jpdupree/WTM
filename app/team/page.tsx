@@ -24,7 +24,7 @@ function paramBibs(): number[] | null {
 }
 
 export default function TeamView() {
-  const { data, isLoading } = useResults(30_000);
+  const { data, isLoading } = useResults("overall", 30_000);
   const [bibs, setBibs] = useState<number[]>([]);
   const [input, setInput] = useState("");
 

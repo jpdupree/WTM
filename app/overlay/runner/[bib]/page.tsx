@@ -10,7 +10,7 @@ export default function RunnerOverlay({
 }) {
   const { bib } = use(params);
   const target = Number(bib);
-  const { data } = useResults(15_000);
+  const { data } = useResults("overall", 15_000);
 
   const r = useMemo(
     () => (data?.results ?? []).find((x) => x.Bib === target),

@@ -11,7 +11,7 @@ function envBibs(): number[] {
 }
 
 export default function TeamOverlay() {
-  const { data } = useResults(15_000);
+  const { data } = useResults("overall", 15_000);
   const [bibs, setBibs] = useState<number[]>([]);
 
   useEffect(() => {

@@ -19,6 +19,13 @@ export function formatDuration(seconds: number): string {
   return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function parseDiffMiles(d: string | undefined): number | null {
+  if (!d || d === "-") return null;
+  // Diff comes as "-10" / "-15" — magnitude is miles behind leader.
+  const n = Number(d.replace(/[−–-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
 export function enrich(raw: RawResult): Result {
   const laps = Number(raw.Laps) || 0;
   const distanceMiles = Number(raw.Distance) || 0;
@@ -32,6 +39,7 @@ export function enrich(raw: RawResult): Result {
     totalTimeSec,
     lastLapSec,
     avgLapSec,
+    diffMiles: parseDiffMiles(raw.Diff),
   };
 }
 

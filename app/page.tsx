@@ -16,7 +16,7 @@ function teamBibs(): Set<number> {
 }
 
 export default function Dashboard() {
-  const { data, error, isLoading } = useResults(30_000);
+  const { data, error, isLoading } = useResults("overall", 30_000);
   const highlight = useMemo(() => teamBibs(), []);
 
   const stats = useMemo(() => {
@@ -59,10 +59,16 @@ export default function Dashboard() {
             Team view
           </Link>
           <Link
-            href="/overlay/leaderboard"
+            href="/overlay/leaderboard?feed=overall"
             className="rounded-md border border-mud-600 bg-mud-800 px-3 py-2 hover:bg-mud-700"
           >
             Overlay: Leaderboard
+          </Link>
+          <Link
+            href="/overlay/podium?feed=women"
+            className="rounded-md border border-mud-600 bg-mud-800 px-3 py-2 hover:bg-mud-700"
+          >
+            Overlay: Podium
           </Link>
           <Link
             href="/overlay/team"

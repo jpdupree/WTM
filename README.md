@@ -21,10 +21,11 @@ Open http://localhost:3000
 |---|---|
 | `/` | Full dashboard — sortable, searchable, filter by category. Highlights tracked team bibs. |
 | `/team` | Team-focused cards. Add bibs inline or via `?bibs=1234,5678`. |
-| `/overlay/leaderboard` | Transparent top-N leaderboard for streaming. `?top=5&cat=Individual` supported. |
+| `/overlay/leaderboard` | Transparent top-N leaderboard. `?feed=overall\|men\|women\|teams&top=10` |
+| `/overlay/podium` | Big broadcast-style top-N with gap-to-leader. `?feed=women&top=10` |
 | `/overlay/team` | Transparent team-only widget. `?bibs=1234,5678` supported. |
 | `/overlay/runner/<bib>` | Single-runner card overlay. |
-| `/api/results` | Cached JSON proxy of the upstream feed. |
+| `/api/results?feed=overall\|men\|women\|teams` | Cached JSON proxy of the upstream feed. |
 
 All `/overlay/*` routes have a transparent body — drop the URL into vMix as a
 **Web Browser** input or OBS as a **Browser Source**, set the size, and the page
@@ -43,17 +44,19 @@ will render with a transparent background.
 `.env.local` (server-only and public):
 
 ```
-RACE_RESULTS_URL=https://api.raceresult.com/348237/A5N5KM8EQMU8KDTHK2HLZGTQ2YLGT5NM
+RACE_FEED_OVERALL=https://api.raceresult.com/.../overall
+RACE_FEED_MEN=https://api.raceresult.com/.../men
+RACE_FEED_WOMEN=https://api.raceresult.com/.../women
+RACE_FEED_TEAMS=https://api.raceresult.com/.../teams
 NEXT_PUBLIC_TEAM_BIBS=2374,2003
 RACE_CACHE_SECONDS=15
 ```
 
-The server caches the upstream response for `RACE_CACHE_SECONDS` so 100 viewers
+The server caches each upstream response for `RACE_CACHE_SECONDS` so 100 viewers
 don't hammer the race-results host.
 
-If `RACE_RESULTS_URL` is unset or upstream errors, `/api/results` falls back to
-`data/sample.json` and tags the payload `source: "sample"` so you can see it in
-the dashboard footer.
+If a feed env var is unset or upstream errors, `/api/results` falls back to
+`data/sample.json` and tags the payload `source: "sample"`.
 
 ## Deploy
 
@@ -67,13 +70,16 @@ Upstream returns a flat JSON array of records. Each record:
 
 ```ts
 {
-  Rank, Bib, Name, Category,           // "Individual" | "Team"
+  Rank, Bib, Name,
+  Category?,            // "Individual" | "Team" — only on overall feed
+  Overall?,             // overall position — only on segment feeds
   Gender, Nation, AgeGroup,
-  Distance,  Laps,                      // strings, numeric
+  Distance, Laps,                      // strings, numeric
   LastLapTime, LastSeen, LastSeenTOD,
-  TotalTime
+  TotalTime,
+  Diff?                 // gap to leader, e.g. "-10" miles — segment feeds only
 }
 ```
 
 `/api/results` enriches each row with parsed numeric fields (`laps`,
-`distanceMiles`, `totalTimeSec`, `lastLapSec`, `avgLapSec`).
+`distanceMiles`, `totalTimeSec`, `lastLapSec`, `avgLapSec`, `diffMiles`).
