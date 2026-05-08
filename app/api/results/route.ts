@@ -23,7 +23,10 @@ function feedFromQuery(q: string | null): FeedKey {
 }
 
 function feedUrl(feed: FeedKey): string | undefined {
-  return process.env[FEED_ENV[feed]] || process.env.RACE_RESULTS_URL;
+  if (feed === "overall") {
+    return process.env.RACE_FEED_OVERALL || process.env.RACE_RESULTS_URL;
+  }
+  return process.env[FEED_ENV[feed]];
 }
 
 async function loadSample(): Promise<RawResult[]> {

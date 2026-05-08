@@ -58,11 +58,31 @@ don't hammer the race-results host.
 If a feed env var is unset or upstream errors, `/api/results` falls back to
 `data/sample.json` and tags the payload `source: "sample"`.
 
-## Deploy
+## Deploy (Vercel, GitHub-integrated)
 
-Easiest: push to GitHub and import on [Vercel](https://vercel.com/new). Set the
-two env vars in the project's settings. The deployed URL goes straight into
-vMix.
+Goal: a permanent public URL that vMix and your phone both load. Nothing runs
+on your laptop or AWS box besides vMix itself.
+
+1. Go to <https://vercel.com/new> and sign in with GitHub.
+2. Import the `jpdupree/WTM` repo. Vercel auto-detects Next.js — leave the
+   build settings on their defaults.
+3. Open **Environment Variables** and paste the feed URLs from
+   `.env.example`:
+   - `RACE_FEED_OVERALL`
+   - `RACE_FEED_MEN`
+   - `RACE_FEED_WOMEN`
+   - `RACE_FEED_TEAMS`
+   - `NEXT_PUBLIC_TEAM_BIBS` (comma-separated bib numbers)
+   - `RACE_CACHE_SECONDS` (optional; default 15)
+4. Click **Deploy**. After ~30 seconds you'll have a URL like
+   `https://wtm-xxxxx.vercel.app`. Every push to `main` (or your tracked
+   branch) auto-redeploys.
+
+In vMix, add a **Web Browser** input pointing to e.g.
+`https://your-url.vercel.app/overlay/podium?feed=women&top=10`.
+
+To rotate API URLs mid-event without redeploying, edit the env vars in the
+Vercel project settings and click **Redeploy** — takes ~30s.
 
 ## Data shape
 
