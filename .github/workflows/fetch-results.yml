@@ -1,0 +1,46 @@
+name: Fetch WTM results
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 10 minutes. GitHub may delay or skip runs under load.
+    # Off-season this just no-ops; tighten the cron for race weekend.
+    - cron: "*/10 * * * *"
+
+# Avoid overlapping runs racing each other's commits.
+concurrency:
+  group: fetch-results
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Fetch feeds
+        env:
+          RACE_FEED_OVERALL: ${{ secrets.RACE_FEED_OVERALL }}
+          RACE_FEED_MEN: ${{ secrets.RACE_FEED_MEN }}
+          RACE_FEED_WOMEN: ${{ secrets.RACE_FEED_WOMEN }}
+          RACE_FEED_TEAMS: ${{ secrets.RACE_FEED_TEAMS }}
+        run: node scripts/fetch-results.mjs
+
+      - name: Commit updated results
+        run: |
+          git config user.name "wtm-results-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/results.json
+          if git diff --staged --quiet; then
+            echo "No changes."
+          else
+            git commit -m "Update results $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
