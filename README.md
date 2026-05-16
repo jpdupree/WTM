@@ -1,76 +1,136 @@
-# WTM — World's Toughest Mudder 2026 Leaderboards
+# WTM — World's Toughest Mudder 2026
 
-A static dashboard showing **Top 10 leaderboards** for World's Toughest
-Mudder 2026, built for the live-stream crew. A scheduled GitHub Action
-pulls the RaceResult feeds and commits a JSON snapshot the dashboard reads.
+Static GitHub Pages site for the WTM 2026 live-stream crew. Three things:
+
+1. **Leaderboards** (`index.html`) — Top 10 boards for the crew.
+2. **Commentator control** (`commentator.html`) — picks the athlete for the
+   vMix solo-stats title, edits the news ticker, and drives the prediction
+   graphics.
+3. **vMix graphics** (`graphics/`) — the predictive map and goal chart,
+   loaded as vMix Web Browser inputs.
+
+## Architecture
 
 ```
 GitHub Action (every 10 min)
   └─ fetches the 4 RaceResult feeds → commits data/results.json
-        └─ GitHub Pages serves index.html, which reads data/results.json
+        └─ GitHub Pages serves all pages, which read data/results.json
+
+Commentator page ──writes──▶ Firebase Realtime DB ──read──▶ vMix
+  • selected athlete            /control/athlete         Data Source → solo-stats title
+  • news ticker text            /control/news            Data Source → news bar title
+  • prediction athlete + goal   /control/prediction      map.html + chart.html browser inputs
 ```
 
-This avoids CORS and keeps the API key URLs out of the browser.
+The committed `data/results.json` keeps the API keys out of the browser
+and avoids CORS. Firebase carries the *live control* state that a static
+site can't hold on its own.
 
 ## Files
 
 | Path | Purpose |
 |------|---------|
-| `index.html`, `assets/` | The dashboard (static, no build step) |
-| `data/results.json` | Latest snapshot, written by the Action |
-| `scripts/fetch-results.mjs` | Fetches the feeds and writes the snapshot |
+| `index.html` | Top 10 leaderboards |
+| `commentator.html` | Commentator control surface |
+| `graphics/map.html`, `graphics/chart.html` | vMix browser-input graphics |
+| `assets/firebase-config.js` | **You fill this in** — Firebase web config |
+| `assets/course-data.js` | **You fill this in** — obstacles & timing mats |
+| `data/results.json` | Latest feed snapshot, written by the Action |
+| `scripts/fetch-results.mjs` | Fetches the feeds |
 | `.github/workflows/fetch-results.yml` | Scheduled fetch + commit |
 
 ## Setup
 
-### 1. Add the feed URLs as Actions secrets
-
-Settings → Secrets and variables → Actions → **New repository secret**.
-Add each of these with the matching RaceResult API URL as the value:
-
-- `RACE_FEED_OVERALL`
-- `RACE_FEED_MEN`
-- `RACE_FEED_WOMEN`
-- `RACE_FEED_TEAMS`
-
-The URLs live only in secrets — never in the repo or the published site.
-A slice whose secret is missing is simply skipped.
-
-### 2. Enable GitHub Pages
+### 1. Enable GitHub Pages
 
 Settings → Pages → Source: **Deploy from a branch** →
 Branch: `claude/wtm-dashboard-yyvRB` (or `main` once merged) → `/ (root)`.
-
-The site publishes at `https://<user>.github.io/wtm/`.
+The site publishes at `https://<user>.github.io/WTM/`.
 
 > Pages sites are publicly reachable even from a private repo — which is
 > what you want, since vMix's browser input can't authenticate. Nothing
-> sensitive is exposed: only the committed results JSON is public.
+> sensitive is exposed: API keys live only in Actions secrets, and the
+> committed JSON is just public race results.
 
-### 3. Run the Action
+### 2. Add the feed URLs as Actions secrets
 
-Actions tab → **Fetch WTM results** → **Run workflow** to fetch
-immediately. After that it runs every 10 minutes on its own.
+Settings → Secrets and variables → Actions → **New repository secret**.
+Add each with the matching RaceResult API URL as the value:
 
-For race weekend you can tighten the `cron` in
-`.github/workflows/fetch-results.yml` (minimum interval GitHub allows is
-5 minutes).
+`RACE_FEED_OVERALL`, `RACE_FEED_MEN`, `RACE_FEED_WOMEN`, `RACE_FEED_TEAMS`
+
+A slice whose secret is missing is simply skipped.
+
+Then: Actions tab → **Fetch WTM results** → **Run workflow** to populate
+`data/results.json`. After that it runs every 10 minutes. Tighten the
+`cron` in the workflow for race weekend (GitHub's minimum is 5 minutes).
+
+### 3. Set up Firebase (live control state)
+
+1. Create a free project at <https://console.firebase.google.com>.
+2. Build → **Realtime Database** → Create database.
+3. Set its rules to (crew tool — open read/write, no sensitive data):
+   ```json
+   { "rules": { "control": { ".read": true, ".write": true } } }
+   ```
+   vMix and the graphics read without logging in, so read must be public.
+4. Project settings → **Your apps** → add a **Web app** → copy the config
+   values into `assets/firebase-config.js` (these values are *not* secret).
+
+Until this is done, every page runs in **preview mode** — fully usable,
+but selections won't reach vMix.
+
+### 4. Wire up vMix
+
+**Solo-stats title & news bar — Data Sources (JSON):**
+Add a Data Source of type JSON pointing at the Firebase REST endpoints
+(your `databaseURL` from the config + path + `.json`):
+
+- Solo stats: `https://<your-db>.firebasedatabase.app/control/athlete.json`
+  → fields: `Name`, `Bib`, `Rank`, `Laps`, `Distance`, `TotalTime`,
+  `LastLapTime`, `Category`, `Nation`.
+- News bar: `https://<your-db>.firebasedatabase.app/control/news.json`
+  → bind the `text` field.
+
+> If your vMix version's Data Sources can't read JSON, tell me — I'll have
+> the Action also publish XML/CSV versions.
+
+**Map & chart — Web Browser inputs:**
+Add Web Browser inputs pointing at your published pages:
+
+- `https://<user>.github.io/WTM/graphics/map.html`
+- `https://<user>.github.io/WTM/graphics/chart.html`
+
+They follow the commentator's prediction pick live. To pin one manually
+instead, append `?bib=123&goal=75` to the URL.
+
+## Commentator page
+
+- **Solo Stats** — search by name or bib; the pick drives the vMix title
+  and refreshes itself as the race updates. *Clear* blanks the graphic.
+- **News Ticker** — one item per line; *Update Ticker* pushes to the bar.
+- **Prediction** — pick an athlete and mileage goal; previews the chart
+  and drives the map + chart graphics.
+
+## Course data — still needed
+
+`assets/course-data.js` has empty `OBSTACLES` and `TIMING_MATS` arrays.
+Send the obstacle list with mileages and the timing-mat locations, and the
+map will place them. Until then the map shows a generic 5-mile lap loop
+with the athlete's current position.
 
 ## Local preview
 
 ```sh
 python3 -m http.server 8080
-# open http://localhost:8080
+# open http://localhost:8080  and  /commentator.html
 ```
 
-To preview with real data, run the fetch script with the env vars set:
+Preview a graphic with no Firebase:
+`http://localhost:8080/graphics/chart.html?bib=123&goal=75`
+
+To pull real data locally:
 
 ```sh
 RACE_FEED_OVERALL='https://...' node scripts/fetch-results.mjs
 ```
-
-## Leaderboards
-
-Tabs: **Overall, Men, Women, Teams** (Top 10 each, by RaceResult rank)
-and **Age Groups** (Top 10 within each `Category` from the overall feed).
-The page auto-refreshes every 30 seconds.

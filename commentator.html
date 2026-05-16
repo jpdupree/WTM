@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WTM 2026 — Commentator Control</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <link rel="stylesheet" href="assets/commentator.css" />
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>Commentator Control</h1>
+      <p class="sub">World's Toughest Mudder 2026</p>
+    </div>
+    <div class="status">
+      <a class="link" href="index.html">Leaderboards →</a>
+    </div>
+  </header>
+
+  <div id="fb-banner" class="banner">Checking sync…</div>
+
+  <main class="panels">
+    <section class="panel">
+      <h2>Solo Stats Graphic</h2>
+      <p class="hint">Search by athlete name or bib. The selection drives the
+        vMix solo-stats title and stays live as the race updates.</p>
+      <input id="solo-search" type="text" autocomplete="off"
+             placeholder="Type a name or bib number…" />
+      <div id="solo-results" class="results"></div>
+      <div class="live-head">
+        <span>On the graphic</span>
+        <button id="solo-clear" type="button" class="ghost">Clear</button>
+      </div>
+      <div id="solo-live" class="live-panel">Nothing selected.</div>
+    </section>
+
+    <section class="panel">
+      <h2>News Ticker</h2>
+      <p class="hint">One news item per line. Sent to the always-on bottom bar
+        in vMix.</p>
+      <textarea id="news-input" rows="4"
+                placeholder="Leader passes 50 miles&#10;Weather hold lifted"></textarea>
+      <div class="row">
+        <button id="news-send" type="button">Update Ticker</button>
+        <button id="news-clear" type="button" class="ghost">Clear Ticker</button>
+      </div>
+      <div class="live-head"><span>On the bar</span></div>
+      <div id="news-live" class="live-panel">Ticker empty.</div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Prediction — Map &amp; Chart</h2>
+      <p class="hint">Pick an athlete and a mileage goal. Drives the map and
+        goal-projection graphics (vMix browser inputs).</p>
+      <input id="pred-search" type="text" autocomplete="off"
+             placeholder="Type a name or bib number…" />
+      <div id="pred-results" class="results"></div>
+      <div class="row goal-row">
+        <label for="pred-goal">Mileage goal</label>
+        <input id="pred-goal" type="number" min="5" step="5" value="50" />
+        <button type="button" data-goal="50" class="ghost">50</button>
+        <button type="button" data-goal="75" class="ghost">75</button>
+        <button type="button" data-goal="100" class="ghost">100</button>
+        <button type="button" data-goal="125" class="ghost">125</button>
+      </div>
+      <div id="pred-readout" class="live-panel">Pick an athlete to preview the projection.</div>
+      <canvas id="pred-chart" class="chart"></canvas>
+    </section>
+  </main>
+
+  <footer>
+    <p>Reads <code>data/results.json</code> every 30s. Selections sync to vMix via Firebase.</p>
+  </footer>
+
+  <script type="module" src="assets/commentator.js"></script>
+</body>
+</html>

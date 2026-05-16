@@ -38,6 +38,8 @@ h1 { font-size: 1.5rem; letter-spacing: 0.5px; }
 
 .status { display: flex; align-items: center; gap: 12px; }
 #updated { color: var(--muted); font-size: 0.85rem; }
+.link { color: var(--accent-2); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+.link:hover { text-decoration: underline; }
 
 button {
   background: var(--accent);
