@@ -46,6 +46,15 @@ export function project(row, goalMiles, lapMiles) {
   };
 }
 
+// Advance a projection by `elapsedSec` of real time at the athlete's
+// current pace. Lets the map dot tick forward between feed updates;
+// the next feed snapshot re-syncs it to the timed position.
+export function advance(p, elapsedSec) {
+  if (!p || p.pace == null || !(elapsedSec > 0)) return p;
+  const miles = p.miles + elapsedSec / p.pace;
+  return { ...p, miles, laps: Math.floor(miles / p.lapMiles) };
+}
+
 // --- canvas helpers --------------------------------------------------
 
 function fitCanvas(canvas) {

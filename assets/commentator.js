@@ -11,7 +11,16 @@ const pred = { bib: null, goalMiles: 50 };
 
 const $ = (id) => document.getElementById(id);
 const overall = () => (results.slices && results.slices.overall) || [];
-const rowByBib = (bib) => overall().find((r) => String(r.Bib) === String(bib)) || null;
+const SLICE_KEYS = ["overall", "men", "women", "teams"];
+
+function rowByBib(bib) {
+  const s = results.slices || {};
+  for (const key of SLICE_KEYS) {
+    const hit = (s[key] || []).find((r) => String(r.Bib) === String(bib));
+    if (hit) return hit;
+  }
+  return null;
+}
 
 // --- Firebase status banner -----------------------------------------
 const banner = $("fb-banner");
@@ -46,26 +55,17 @@ for (const def of [
   linkbar.appendChild(a);
 }
 
-// --- shared athlete search ------------------------------------------
-function renderSearch(query, container, onPick) {
+// --- shared result list ---------------------------------------------
+function renderResultRows(rows, container, onPick, emptyMsg) {
   container.innerHTML = "";
-  const q = query.trim().toLowerCase();
-  if (!q) return;
-  const matches = overall()
-    .filter(
-      (r) =>
-        String(r.Bib).toLowerCase().startsWith(q) ||
-        String(r.Name || "").toLowerCase().includes(q),
-    )
-    .slice(0, 12);
-  if (matches.length === 0) {
+  if (rows.length === 0) {
     const note = document.createElement("div");
     note.className = "empty-note";
-    note.textContent = overall().length ? "No match." : "No results loaded yet.";
+    note.textContent = emptyMsg;
     container.appendChild(note);
     return;
   }
-  for (const r of matches) {
+  for (const r of rows) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "result";
@@ -73,6 +73,36 @@ function renderSearch(query, container, onPick) {
     b.addEventListener("click", () => onPick(r));
     container.appendChild(b);
   }
+}
+
+function renderSearch(query, container, onPick) {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    container.innerHTML = "";
+    return;
+  }
+  const matches = overall()
+    .filter(
+      (r) =>
+        String(r.Bib).toLowerCase().startsWith(q) ||
+        String(r.Name || "").toLowerCase().includes(q),
+    )
+    .slice(0, 12);
+  renderResultRows(
+    matches,
+    container,
+    onPick,
+    overall().length ? "No match." : "No results loaded yet.",
+  );
+}
+
+// Top 10 of a slice, ordered by RaceResult rank.
+function topTen(sliceKey) {
+  const rows = (results.slices && results.slices[sliceKey]) || [];
+  return [...rows]
+    .filter((r) => Number.isFinite(parseFloat(r.Rank)))
+    .sort((a, b) => parseFloat(a.Rank) - parseFloat(b.Rank))
+    .slice(0, 10);
 }
 
 function fieldLine(label, value) {
@@ -172,12 +202,26 @@ const predGoal = $("pred-goal");
 const predReadout = $("pred-readout");
 const predChart = $("pred-chart");
 
+function pickPrediction(r) {
+  pred.bib = r.Bib;
+  predSearch.value = `#${r.Bib} ${r.Name}`;
+  predResults.innerHTML = "";
+  pushPrediction();
+}
+
 predSearch.addEventListener("input", () =>
-  renderSearch(predSearch.value, predResults, (r) => {
-    pred.bib = r.Bib;
-    predSearch.value = `#${r.Bib} ${r.Name}`;
-    predResults.innerHTML = "";
-    pushPrediction();
+  renderSearch(predSearch.value, predResults, pickPrediction),
+);
+
+document.querySelectorAll("[data-slice]").forEach((b) =>
+  b.addEventListener("click", () => {
+    const slice = b.dataset.slice;
+    renderResultRows(
+      topTen(slice),
+      predResults,
+      pickPrediction,
+      `No ${slice} results loaded yet.`,
+    );
   }),
 );
 

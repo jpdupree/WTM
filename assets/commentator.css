@@ -72,6 +72,7 @@ input:focus, textarea:focus { outline: 2px solid var(--accent-2); }
 .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
 .goal-row label { color: var(--muted); font-size: 0.85rem; }
 .goal-row input[type="number"] { width: 90px; }
+.quick-label { color: var(--muted); font-size: 0.85rem; }
 
 button.ghost {
   background: transparent;

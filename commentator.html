@@ -60,6 +60,12 @@
         goal-projection graphics (vMix browser inputs).</p>
       <input id="pred-search" type="text" autocomplete="off"
              placeholder="Type a name or bib number…" />
+      <div class="row quick-row">
+        <span class="quick-label">Quick pick</span>
+        <button type="button" data-slice="men" class="ghost">Top 10 Men</button>
+        <button type="button" data-slice="women" class="ghost">Top 10 Women</button>
+        <button type="button" data-slice="teams" class="ghost">Top 10 Teams</button>
+      </div>
       <div id="pred-results" class="results"></div>
       <div class="row goal-row">
         <label for="pred-goal">Mileage goal</label>

@@ -14,11 +14,12 @@ if (overrideBib) {
 }
 
 export function rowByBib(bib) {
-  return (
-    ((results.slices && results.slices.overall) || []).find(
-      (r) => String(r.Bib) === String(bib),
-    ) || null
-  );
+  const s = results.slices || {};
+  for (const key of ["overall", "men", "women", "teams"]) {
+    const hit = (s[key] || []).find((r) => String(r.Bib) === String(bib));
+    if (hit) return hit;
+  }
+  return null;
 }
 
 // renderFn(pred) runs on every data refresh, selection change, or resize.
