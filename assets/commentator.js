@@ -1,6 +1,7 @@
 import { configured, writeControl } from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
 import { project, drawChart, secToHms } from "./predict.js";
+import { VMIX_LINKS } from "./links.js";
 
 const REFRESH_MS = 30_000;
 
@@ -22,6 +23,27 @@ if (configured) {
     "Preview mode — Firebase not configured. Selections won't reach vMix " +
     "until assets/firebase-config.js is filled in (see README).";
   banner.className = "banner warn";
+}
+
+// --- vMix quick links -----------------------------------------------
+const linkbar = $("vmix-links");
+for (const def of [
+  { key: "social", label: "Social Page" },
+  { key: "telestrator", label: "Telestrator" },
+]) {
+  const url = VMIX_LINKS[def.key];
+  const a = document.createElement("a");
+  a.textContent = def.label;
+  if (url) {
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.className = "linkbtn";
+  } else {
+    a.className = "linkbtn disabled";
+    a.title = "URL not set — edit assets/links.js";
+  }
+  linkbar.appendChild(a);
 }
 
 // --- shared athlete search ------------------------------------------

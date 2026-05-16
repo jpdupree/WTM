@@ -35,6 +35,7 @@ site can't hold on its own.
 | `graphics/map.html`, `graphics/chart.html` | vMix browser-input graphics |
 | `assets/firebase-config.js` | **You fill this in** — Firebase web config |
 | `assets/course-data.js` | **You fill this in** — obstacles & timing mats |
+| `assets/links.js` | **You fill this in** — vMix social / telestrator links |
 | `data/results.json` | Latest feed snapshot, written by the Action |
 | `scripts/fetch-results.mjs` | Fetches the feeds |
 | `.github/workflows/fetch-results.yml` | Scheduled fetch + commit |

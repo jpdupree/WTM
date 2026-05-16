@@ -6,6 +6,34 @@
 .banner.ok { background: #173524; color: #6fe0a0; }
 .banner.warn { background: #3a2e12; color: var(--accent); }
 
+.linkbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.linkbar .label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+#vmix-links { display: flex; gap: 8px; }
+.linkbtn {
+  background: var(--panel-2);
+  color: var(--accent-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.linkbtn:hover { background: var(--line); }
+.linkbtn.disabled { color: var(--muted); opacity: 0.55; pointer-events: none; }
+
 .panels {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
