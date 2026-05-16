@@ -150,53 +150,94 @@ export function drawChart(canvas, p) {
   ctx.fillText(p.miles.toFixed(1) + " mi now", X(elapsedH) + 8, Y(p.miles) - 8);
 }
 
-// One-lap loop with the athlete's current position and obstacle markers.
-export function drawMap(canvas, p, obstacles, mats) {
-  const { ctx, w, h } = fitCanvas(canvas);
-  const cx = w / 2, cy = h / 2;
-  const rx = Math.min(w, h) * 0.36;
-  const ry = Math.min(w, h) * 0.30;
-  const at = (frac) => {
-    const a = -Math.PI / 2 + frac * Math.PI * 2;
-    return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
-  };
-
-  // track
-  ctx.strokeStyle = "rgba(120,140,160,0.5)";
-  ctx.lineWidth = 10;
-  ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
-
-  // obstacles / mats
-  ctx.font = "11px Segoe UI, sans-serif";
-  for (const o of obstacles || []) {
-    const [x, y] = at((o.mile % p.lapMiles) / p.lapMiles);
-    ctx.fillStyle = COL.muted;
-    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = COL.text;
-    ctx.fillText(o.name, x + 8, y + 4);
+// Interpolate an {x,y} position at a given mile along the course.
+function pointAtMile(course, mile) {
+  const last = course[course.length - 1];
+  if (mile <= 0) return course[0];
+  if (mile >= last.mile) return last;
+  for (let i = 1; i < course.length; i++) {
+    if (course[i].mile >= mile) {
+      const a = course[i - 1];
+      const b = course[i];
+      const f = (mile - a.mile) / ((b.mile - a.mile) || 1);
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+    }
   }
+  return last;
+}
+
+// One lap of the real course with the athlete's position and obstacles.
+export function drawMap(canvas, p, course, obstacles, mats) {
+  const { ctx, w, h } = fitCanvas(canvas);
+  if (!course || course.length < 2) {
+    ctx.fillStyle = COL.muted;
+    ctx.font = "14px Segoe UI, sans-serif";
+    ctx.fillText("Course data not loaded", 20, h / 2);
+    return;
+  }
+
+  const pad = 54;
+  let minx = 1, maxx = 0, miny = 1, maxy = 0;
+  for (const pt of course) {
+    minx = Math.min(minx, pt.x); maxx = Math.max(maxx, pt.x);
+    miny = Math.min(miny, pt.y); maxy = Math.max(maxy, pt.y);
+  }
+  const scale = Math.min(
+    (w - 2 * pad) / (maxx - minx || 1),
+    (h - 2 * pad) / (maxy - miny || 1),
+  );
+  const offX = (w - (maxx - minx) * scale) / 2 - minx * scale;
+  const offY = (h - (maxy - miny) * scale) / 2 - miny * scale;
+  const S = (pt) => [offX + pt.x * scale, offY + pt.y * scale];
+
+  // course line
+  ctx.strokeStyle = "rgba(140,160,180,0.7)";
+  ctx.lineWidth = 5;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  course.forEach((pt, i) => {
+    const [x, y] = S(pt);
+    if (i) ctx.lineTo(x, y);
+    else ctx.moveTo(x, y);
+  });
+  ctx.stroke();
+
+  // obstacles — numbered markers
+  ctx.font = "bold 10px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  (obstacles || []).forEach((o, i) => {
+    const [x, y] = S(pointAtMile(course, o.mile));
+    ctx.fillStyle = "#0c1014";
+    ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = COL.actual;
+    ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = COL.actual;
+    ctx.fillText(String(o.n ?? i + 1), x, y + 3.5);
+  });
+
+  // timing mats
   for (const m of mats || []) {
-    const [x, y] = at((m.mile % p.lapMiles) / p.lapMiles);
+    const [x, y] = S(pointAtMile(course, m.mile));
     ctx.fillStyle = COL.goal;
     ctx.fillRect(x - 4, y - 4, 8, 8);
   }
 
-  // athlete position on the current lap
-  const lapFrac = ((p.miles % p.lapMiles) / p.lapMiles) || 0;
-  const [ax, ay] = at(lapFrac);
-  ctx.fillStyle = COL.projection;
-  ctx.beginPath(); ctx.arc(ax, ay, 9, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#1a1207";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  // start / finish
+  const [sx, sy] = S(course[0]);
+  ctx.fillStyle = COL.goal;
+  ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.fill();
 
-  // centre readout
-  ctx.fillStyle = COL.text;
-  ctx.textAlign = "center";
-  ctx.font = "bold 26px Segoe UI, sans-serif";
-  ctx.fillText("Lap " + (p.laps + 1), cx, cy - 6);
-  ctx.font = "15px Segoe UI, sans-serif";
-  ctx.fillStyle = COL.muted;
-  ctx.fillText(p.miles.toFixed(1) + " mi total", cx, cy + 18);
+  // athlete dot
+  const lapFrac = ((p.miles % p.lapMiles) + p.lapMiles) % p.lapMiles;
+  const [ax, ay] = S(pointAtMile(course, lapFrac));
+  ctx.beginPath(); ctx.arc(ax, ay, 10, 0, Math.PI * 2);
+  ctx.fillStyle = COL.projection; ctx.fill();
+  ctx.strokeStyle = "#1a1207"; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // lap badge
   ctx.textAlign = "left";
+  ctx.fillStyle = COL.text;
+  ctx.font = "bold 16px Segoe UI, sans-serif";
+  ctx.fillText(`Lap ${p.laps + 1}  •  ${p.miles.toFixed(2)} mi`, 16, h - 16);
 }

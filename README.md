@@ -34,8 +34,9 @@ site can't hold on its own.
 | `commentator.html` | Commentator control surface |
 | `graphics/map.html`, `graphics/chart.html` | vMix browser-input graphics |
 | `assets/firebase-config.js` | **You fill this in** — Firebase web config |
-| `assets/course-data.js` | **You fill this in** — obstacles & timing mats |
 | `assets/links.js` | **You fill this in** — vMix social / telestrator links |
+| `assets/course-data.js` | Generated lap geometry + obstacles |
+| `data/course.kml`, `scripts/build-course.mjs` | Course KML → `course-data.js` |
 | `data/results.json` | Latest feed snapshot, written by the Action |
 | `scripts/fetch-results.mjs` | Fetches the feeds |
 | `.github/workflows/fetch-results.yml` | Scheduled fetch + commit |
@@ -113,12 +114,19 @@ instead, append `?bib=123&goal=75` to the URL.
 - **Prediction** — pick an athlete and mileage goal; previews the chart
   and drives the map + chart graphics.
 
-## Course data — still needed
+## Course data
 
-`assets/course-data.js` has empty `OBSTACLES` and `TIMING_MATS` arrays.
-Send the obstacle list with mileages and the timing-mat locations, and the
-map will place them. Until then the map shows a generic 5-mile lap loop
-with the athlete's current position.
+`assets/course-data.js` is generated from `data/course.kml` (the WTM
+course KMZ, unzipped) by `scripts/build-course.mjs` — it holds the lap
+geometry and the 20 obstacle mileages, snapped onto the loop. Re-run
+after replacing the KML:
+
+```sh
+node scripts/build-course.mjs
+```
+
+`TIMING_MATS` is still empty — send the timing-mat locations to add them
+(a re-run of the script resets the array).
 
 ## Local preview
 

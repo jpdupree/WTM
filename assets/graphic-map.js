@@ -1,4 +1,4 @@
-import { LAP_MILES, OBSTACLES, TIMING_MATS } from "./course-data.js";
+import { LAP_MILES, COURSE, OBSTACLES, TIMING_MATS } from "./course-data.js";
 import { project, advance, drawMap } from "./predict.js";
 import { startGraphic, rowByBib } from "./graphic-base.js";
 
@@ -27,7 +27,7 @@ function tick() {
   const secs = Math.min(MAX_EXTRAPOLATE_SEC, (Date.now() - basis.t) / 1000);
   const live = advance(basis.p, secs);
   metaEl.textContent = `${live.miles.toFixed(1)} mi  •  goal ${basis.p.goalMiles} mi`;
-  drawMap(canvas, live, OBSTACLES, TIMING_MATS);
+  drawMap(canvas, live, COURSE, OBSTACLES, TIMING_MATS);
 }
 
 startGraphic((pred) => {
