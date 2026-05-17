@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WTM Rabbit — Camera GPS</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="assets/style.css" />
   <link rel="stylesheet" href="assets/rabbit.css" />
 </head>
@@ -31,8 +32,26 @@
     </div>
 
     <div id="status" class="status-box">Not sharing.</div>
+
+    <section class="map-section">
+      <h2>Course map</h2>
+      <p class="hint">Add athletes to see them on the course alongside the
+        cameras. Camera positions show automatically.</p>
+      <input id="ath-search" type="text" autocomplete="off"
+             placeholder="Type a name or bib number…" />
+      <div class="row quick-row">
+        <button type="button" data-slice="men" class="ghost">Top 10 Men</button>
+        <button type="button" data-slice="women" class="ghost">Top 10 Women</button>
+        <button type="button" data-slice="teams" class="ghost">Top 10 Teams</button>
+        <button id="ath-clear" type="button" class="ghost">Clear</button>
+      </div>
+      <div id="ath-results" class="results"></div>
+      <div id="ath-list" class="ath-list"></div>
+      <div id="rabbit-map" class="map-box"></div>
+    </section>
   </main>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="assets/rabbit.js"></script>
 </body>
 </html>

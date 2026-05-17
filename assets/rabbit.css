@@ -15,6 +15,7 @@
 .field select { font-size: 1.05rem; padding: 12px; }
 
 .row { display: flex; gap: 10px; }
+.quick-row { flex-wrap: wrap; margin-top: 10px; }
 #start { font-size: 1rem; padding: 14px 22px; }
 .ghost {
   background: transparent;
@@ -33,3 +34,78 @@
 }
 .status-box.ok { border-color: #2e6b45; color: #6fe0a0; }
 .status-box.error { border-color: #6b2e2e; color: #ff7a7a; }
+
+/* Course map section */
+.map-section {
+  margin-top: 30px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.map-section h2 {
+  font-size: 1.05rem;
+  color: var(--accent-2);
+  margin-bottom: 6px;
+}
+.map-section input[type="text"] { width: 100%; padding: 10px 12px; font-size: 0.95rem; }
+
+.results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.result {
+  text-align: left;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.result:hover { background: var(--line); filter: none; }
+
+.ath-list { margin-top: 8px; }
+.ath-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+}
+.ath-main { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+.swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.x-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+.x-btn:hover { color: #ff7a7a; filter: none; }
+
+.map-box {
+  width: 100%;
+  height: 340px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* Leaflet marker styles (shared look with the graphic map). */
+.rabbit-marker {
+  background: #06b6d4;
+  color: #04222a;
+  font: 700 11px "Segoe UI", Roboto, sans-serif;
+  border: 2px solid #04222a;
+  border-radius: 11px;
+  text-align: center;
+  line-height: 18px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.leaflet-tooltip.athlete-tip {
+  background: #1a1207;
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 1px 5px;
+}
