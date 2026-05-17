@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WTM Rabbit — Camera GPS</title>
+  <title>WTM Rabbit — Cameras &amp; Athletes</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="assets/style.css" />
   <link rel="stylesheet" href="assets/rabbit.css" />
@@ -11,35 +11,32 @@
 <body>
   <header>
     <div class="title">
-      <h1>Rabbit GPS</h1>
+      <h1>Rabbit — Cameras &amp; Athletes</h1>
       <p class="sub">World's Toughest Mudder 2026</p>
     </div>
   </header>
 
   <main class="rabbit-main">
-    <p class="hint">Camera operators: choose your camera, then start
-      sharing your phone's location so it shows on the course map.
-      <strong>Keep this page open and in front</strong> — phones pause
-      location updates when you switch to another app. Best results: use
-      a dedicated phone for tracking, separate from the one you film
-      with. The screen is kept awake while sharing.</p>
-
-    <label class="field">
-      <span>Your camera</span>
-      <select id="slot"></select>
-    </label>
-
-    <div class="row">
-      <button id="start" type="button">Start sharing location</button>
-      <button id="stop" type="button" class="ghost" hidden>Stop sharing</button>
-    </div>
-
-    <div id="status" class="status-box">Not sharing.</div>
+    <section class="setup">
+      <h2>Background GPS — one-time setup</h2>
+      <p class="hint">Your live location is shared by the <strong>OwnTracks</strong>
+        app, which keeps tracking in the background even while you film.
+        Set it up once:</p>
+      <ol>
+        <li>Install <strong>OwnTracks</strong> from the App Store or Play Store.</li>
+        <li>Open it → Settings → set <strong>Mode</strong> to <strong>HTTP</strong>.</li>
+        <li>Set the <strong>URL</strong> to:<br /><code id="ot-url">not set yet</code></li>
+        <li>Set your <strong>Tracker ID (tid)</strong> to your camera's code:</li>
+      </ol>
+      <div id="cam-ids" class="cam-ids"></div>
+      <p class="hint">Then allow location access <strong>Always</strong>. That's it —
+        OwnTracks reports your position in the background.</p>
+    </section>
 
     <section class="map-section">
       <h2>Course map</h2>
-      <p class="hint">Add athletes to see them on the course alongside the
-        cameras. Camera positions show automatically.</p>
+      <p class="hint">Cameras currently sharing show automatically. Add
+        athletes to see them on the course too.</p>
       <input id="ath-search" type="text" autocomplete="off"
              placeholder="Type a name or bib number…" />
       <div class="row quick-row">

@@ -51,25 +51,10 @@ export async function readControl(path) {
 
 // --- rabbit (camera-operator) GPS ------------------------------------
 
-// Subscribe to all rabbit positions; cb receives an object keyed by id.
+// Subscribe to all camera positions. Positions are written server-side
+// by the OwnTracks bridge function (see functions/index.js).
 export async function watchRabbits(cb) {
   const f = await load();
   if (!f) return;
   f.onValue(f.ref(f.db, "rabbits"), (snap) => cb(snap.val() || {}));
-}
-
-// Publish this device's position to rabbits/<id>. The entry is NOT
-// auto-removed on disconnect — a backgrounded phone keeps its last
-// position on the map, and the maps drop rabbits once their fix is
-// stale (see rabbitList in rabbits.js).
-export async function publishRabbit(id, value) {
-  const f = await load();
-  if (!f) return;
-  return f.set(f.ref(f.db, "rabbits/" + id), value);
-}
-
-export async function clearRabbit(id) {
-  const f = await load();
-  if (!f) return;
-  return f.set(f.ref(f.db, "rabbits/" + id), null);
 }

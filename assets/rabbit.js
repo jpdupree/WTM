@@ -1,115 +1,24 @@
-import { configured, publishRabbit, clearRabbit, watchRabbits } from "./firebase.js";
-import { RABBIT_SLOTS, rabbitList } from "./rabbits.js";
+import { watchRabbits } from "./firebase.js";
+import { RABBIT_SLOTS, OWNTRACKS_URL, rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
 import { SERIES_COLORS } from "./predict.js";
 import { LAP_MILES } from "./course-data.js";
 
 const $ = (id) => document.getElementById(id);
 
-// --- GPS sharing -----------------------------------------------------
-const slotSel = $("slot");
-const startBtn = $("start");
-const stopBtn = $("stop");
-const statusEl = $("status");
+// --- OwnTracks setup info -------------------------------------------
+$("ot-url").textContent = OWNTRACKS_URL || "(bridge URL not set — see README)";
 
+const camIds = $("cam-ids");
 RABBIT_SLOTS.forEach((name, i) => {
-  const o = document.createElement("option");
-  o.value = String(i);
-  o.textContent = name;
-  slotSel.appendChild(o);
-});
-
-const saved = localStorage.getItem("wtm-rabbit-slot");
-if (saved != null && RABBIT_SLOTS[saved] != null) slotSel.value = saved;
-
-if (!configured) {
-  statusEl.className = "status-box error";
-  statusEl.textContent = "Firebase isn't configured — GPS sharing is unavailable.";
-  startBtn.disabled = true;
-}
-
-let watchId = null;
-let activeSlot = null;
-
-// Keeps the screen awake while sharing so a dedicated tracker phone on
-// this page doesn't sleep. It does NOT keep GPS running when you switch
-// to another app — that is a browser limitation.
-let wakeLock = null;
-
-async function requestWakeLock() {
-  try {
-    if ("wakeLock" in navigator) {
-      wakeLock = await navigator.wakeLock.request("screen");
-    }
-  } catch {
-    /* wake lock unavailable — ignore */
-  }
-}
-
-function releaseWakeLock() {
-  if (wakeLock) {
-    wakeLock.release().catch(() => {});
-    wakeLock = null;
-  }
-}
-
-// The lock is dropped when the page is hidden; re-acquire on return.
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && watchId != null) requestWakeLock();
-});
-
-function setSharing(on) {
-  startBtn.hidden = on;
-  stopBtn.hidden = !on;
-  slotSel.disabled = on;
-}
-
-startBtn.addEventListener("click", () => {
-  if (!navigator.geolocation) {
-    statusEl.className = "status-box error";
-    statusEl.textContent = "This device has no location support.";
-    return;
-  }
-  activeSlot = slotSel.value;
-  localStorage.setItem("wtm-rabbit-slot", activeSlot);
-  const name = RABBIT_SLOTS[activeSlot];
-
-  statusEl.className = "status-box";
-  statusEl.textContent = "Requesting location permission…";
-
-  watchId = navigator.geolocation.watchPosition(
-    (pos) => {
-      const { latitude, longitude, accuracy } = pos.coords;
-      publishRabbit(activeSlot, {
-        name,
-        lat: latitude,
-        lng: longitude,
-        acc: Math.round(accuracy),
-        at: new Date().toISOString(),
-      });
-      statusEl.className = "status-box ok";
-      statusEl.textContent =
-        `Sharing as ${name} — last fix ${new Date().toLocaleTimeString()} — ` +
-        `±${Math.round(accuracy)} m`;
-    },
-    (err) => {
-      statusEl.className = "status-box error";
-      statusEl.textContent = "Location error: " + err.message;
-    },
-    { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
-  );
-  setSharing(true);
-  requestWakeLock();
-});
-
-stopBtn.addEventListener("click", () => {
-  if (watchId != null) navigator.geolocation.clearWatch(watchId);
-  watchId = null;
-  releaseWakeLock();
-  if (activeSlot != null) clearRabbit(activeSlot);
-  statusEl.className = "status-box";
-  statusEl.textContent = "Stopped sharing.";
-  setSharing(false);
+  const row = document.createElement("div");
+  row.className = "cam-id";
+  const n = document.createElement("span");
+  n.textContent = name;
+  const code = document.createElement("code");
+  code.textContent = "c" + (i + 1);
+  row.append(n, code);
+  camIds.appendChild(row);
 });
 
 // --- course map + athletes ------------------------------------------
