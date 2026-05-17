@@ -80,6 +80,7 @@ button.ghost {
   border: 1px solid var(--line);
 }
 button.ghost:hover { background: var(--panel-2); filter: none; }
+button.ghost.on { background: #06b6d4; color: #04222a; border-color: #06b6d4; }
 
 .results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .result {

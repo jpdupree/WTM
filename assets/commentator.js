@@ -1,4 +1,4 @@
-import { configured, writeControl } from "./firebase.js";
+import { configured, writeControl, watchRabbits } from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
 import { project, drawChart, chartLegend, markDim, secToHms, SERIES_COLORS } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
@@ -201,6 +201,33 @@ try {
 } catch (err) {
   console.error("Course map failed to load:", err);
 }
+
+// Camera (rabbit) positions on the prediction map — local toggle.
+const rabbitsBtn = $("pred-rabbits");
+let showRabbits = false;
+let rabbits = [];
+
+function drawRabbits() {
+  if (cmap) cmap.setRabbits(showRabbits ? rabbits : []);
+  rabbitsBtn.classList.toggle("on", showRabbits);
+  const count = rabbits.length ? ` (${rabbits.length})` : "";
+  rabbitsBtn.textContent =
+    (showRabbits ? "Hide camera positions" : "Show camera positions") + count;
+}
+
+rabbitsBtn.addEventListener("click", () => {
+  showRabbits = !showRabbits;
+  drawRabbits();
+});
+
+watchRabbits((obj) => {
+  rabbits = Object.values(obj || {}).filter(
+    (r) => r && typeof r.lat === "number" && typeof r.lng === "number",
+  );
+  drawRabbits();
+});
+
+drawRabbits();
 
 // Replace the selection (and reset any focus) with a new set of bibs.
 function setSelection(bibs) {
