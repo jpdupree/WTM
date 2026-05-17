@@ -30,6 +30,11 @@ exports.rabbitPoll = onSchedule(
     schedule: "every 1 minutes",
     secrets: [CLIENT_ID, API_KEY],
     timeoutSeconds: 60,
+    // Route egress through a VPC connector + Cloud NAT so the Larix
+    // Tuner API sees a fixed IP. The connector must be created before
+    // deploying — see the gcloud setup steps in the README.
+    vpcConnector: "wtm-connector",
+    vpcConnectorEgressSettings: "ALL_TRAFFIC",
   },
   async () => {
     const auth = `client_id=${CLIENT_ID.value()}&api_key=${API_KEY.value()}`;
