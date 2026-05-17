@@ -1,27 +1,11 @@
 import { watchRabbits } from "./firebase.js";
-import { RABBIT_SLOTS, OWNTRACKS_URL, rabbitList } from "./rabbits.js";
+import { rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
 import { SERIES_COLORS } from "./predict.js";
 import { LAP_MILES } from "./course-data.js";
 
 const $ = (id) => document.getElementById(id);
 
-// --- OwnTracks setup info -------------------------------------------
-$("ot-url").textContent = OWNTRACKS_URL || "(bridge URL not set — see README)";
-
-const camIds = $("cam-ids");
-RABBIT_SLOTS.forEach((name, i) => {
-  const row = document.createElement("div");
-  row.className = "cam-id";
-  const n = document.createElement("span");
-  n.textContent = name;
-  const code = document.createElement("code");
-  code.textContent = "c" + (i + 1);
-  row.append(n, code);
-  camIds.appendChild(row);
-});
-
-// --- course map + athletes ------------------------------------------
 let results = { slices: {} };
 let selected = [];
 
@@ -144,7 +128,7 @@ $("ath-clear").addEventListener("click", () => {
   renderAthletes();
 });
 
-// Camera positions always show on the rabbit map.
+// Camera positions (from Larix Broadcaster) always show on the map.
 watchRabbits((obj) => {
   if (cmap) cmap.setRabbits(rabbitList(obj));
 });

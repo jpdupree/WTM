@@ -17,38 +17,20 @@
   </header>
 
   <main class="rabbit-main">
-    <section class="setup">
-      <h2>Background GPS — one-time setup</h2>
-      <p class="hint">Your live location is shared by the <strong>OwnTracks</strong>
-        app, which keeps tracking in the background even while you film.
-        Set it up once:</p>
-      <ol>
-        <li>Install <strong>OwnTracks</strong> from the App Store or Play Store.</li>
-        <li>Open it → Settings → set <strong>Mode</strong> to <strong>HTTP</strong>.</li>
-        <li>Set the <strong>URL</strong> to:<br /><code id="ot-url">not set yet</code></li>
-        <li>Set your <strong>Tracker ID (tid)</strong> to your camera's code:</li>
-      </ol>
-      <div id="cam-ids" class="cam-ids"></div>
-      <p class="hint">Then allow location access <strong>Always</strong>. That's it —
-        OwnTracks reports your position in the background.</p>
-    </section>
+    <p class="hint">Camera positions update automatically from Larix
+      Broadcaster. Search to add athletes to the course map too.</p>
 
-    <section class="map-section">
-      <h2>Course map</h2>
-      <p class="hint">Cameras currently sharing show automatically. Add
-        athletes to see them on the course too.</p>
-      <input id="ath-search" type="text" autocomplete="off"
-             placeholder="Type a name or bib number…" />
-      <div class="row quick-row">
-        <button type="button" data-slice="men" class="ghost">Top 10 Men</button>
-        <button type="button" data-slice="women" class="ghost">Top 10 Women</button>
-        <button type="button" data-slice="teams" class="ghost">Top 10 Teams</button>
-        <button id="ath-clear" type="button" class="ghost">Clear</button>
-      </div>
-      <div id="ath-results" class="results"></div>
-      <div id="ath-list" class="ath-list"></div>
-      <div id="rabbit-map" class="map-box"></div>
-    </section>
+    <input id="ath-search" type="text" autocomplete="off"
+           placeholder="Type a name or bib number…" />
+    <div class="row quick-row">
+      <button type="button" data-slice="men" class="ghost">Top 10 Men</button>
+      <button type="button" data-slice="women" class="ghost">Top 10 Women</button>
+      <button type="button" data-slice="teams" class="ghost">Top 10 Teams</button>
+      <button id="ath-clear" type="button" class="ghost">Clear</button>
+    </div>
+    <div id="ath-results" class="results"></div>
+    <div id="ath-list" class="ath-list"></div>
+    <div id="rabbit-map" class="map-box"></div>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

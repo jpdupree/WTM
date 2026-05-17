@@ -1,25 +1,8 @@
-// Preset camera-operator ("rabbit") slots for GPS tracking. Edit this
-// list to match your camera positions — each operator picks their slot
-// on rabbit.html. The array index is the slot's id in Firebase.
-
-export const RABBIT_SLOTS = [
-  "Cam 1",
-  "Cam 2",
-  "Cam 3",
-  "Cam 4",
-  "Cam 5",
-  "Cam 6",
-];
-
-// The deployed OwnTracks bridge function URL — paste it in after running
-// `firebase deploy --only functions`. Shown in the rabbit-page setup.
-export const OWNTRACKS_URL = "";
-
-// A rabbit's last fix is dropped from the maps once it is this old, so a
-// camera that has gone offline doesn't linger forever.
+// A camera ("rabbit") position is dropped from the maps once its last
+// fix is this old, so a camera that has gone offline doesn't linger.
 const RABBIT_STALE_MS = 15 * 60 * 1000;
 
-// Convert the raw /rabbits object into an array of valid, fresh rabbits.
+// Convert the raw /rabbits object into an array of valid, fresh cameras.
 export function rabbitList(obj) {
   const now = Date.now();
   return Object.values(obj || {}).filter((r) => {
