@@ -93,27 +93,29 @@ function boardEl(title, rows, rankField) {
   return div;
 }
 
-// The nine WTM age brackets, split by gender into 18 groups.
-const AGE_BRACKETS = [
-  "18-24", "25-29", "30-34", "35-39", "40-44",
-  "45-49", "50-54", "55-59", "60+",
-];
-const AGE_GROUPS = [
-  ...AGE_BRACKETS.map((b) => "Female " + b),
-  ...AGE_BRACKETS.map((b) => "Male " + b),
+// Default 18 male/female brackets — shown as placeholders before the
+// feed carries age data. The live feed may add more (e.g. "Male 15-17").
+const DEFAULT_AGE_GROUPS = [
+  "Female 18-24", "Female 25-29", "Female 30-34", "Female 35-39",
+  "Female 40-44", "Female 45-49", "Female 50-54", "Female 55-59",
+  "Female 60+",
+  "Male 18-24", "Male 25-29", "Male 30-34", "Male 35-39", "Male 40-44",
+  "Male 45-49", "Male 50-54", "Male 55-59", "Male 60+",
 ];
 
-// Map a feed row to one of the 18 age-group labels, or null if unknown.
-// The current results feed carries NO age data — Category is only
-// "Individual" / "Team" — so this returns null for everyone. Once the
-// 2026 feed includes gender + age group, normalize that field here and
-// match it to an AGE_GROUPS label; the rest of the tab then populates.
+// Age-group label for a row, from the feed's AgeGroupCategory field
+// (e.g. "Male 50-54"), or null when the feed has no age data.
 function ageGroupOf(row) {
-  const raw = String(row.Category || "").trim().toLowerCase();
-  for (const g of AGE_GROUPS) {
-    if (raw === g.toLowerCase()) return g;
-  }
-  return null;
+  return String(row.AgeGroupCategory || "").trim() || null;
+}
+
+// Sort age-group labels: Female before Male, then ascending by age.
+function ageOrder(label) {
+  const m = String(label).match(/(\d+)/);
+  return (String(label).startsWith("Female") ? 0 : 1000) + (m ? +m[1] : 999);
+}
+function sortGroups(list) {
+  return [...list].sort((a, b) => ageOrder(a) - ageOrder(b));
 }
 
 // Bibs of the overall top-3 men and top-3 women — excluded from the
@@ -170,26 +172,10 @@ function ageGroupCard(name, rows) {
   return card;
 }
 
-function renderAgeGroups(slices) {
-  const wrap = document.createElement("div");
-
-  const note = document.createElement("p");
-  note.className = "note";
-  note.textContent =
-    "Top 3 of each age group — the overall top-3 men and women are " +
-    "excluded. Groups populate once the feed includes athlete age data.";
-  wrap.appendChild(note);
-
-  const exclude = overallPodiumBibs(slices);
-  const buckets = new Map(AGE_GROUPS.map((g) => [g, []]));
-  for (const r of slices.overall || []) {
-    if (r.Category === "Team") continue; // individuals only
-    if (exclude.has(String(r.Bib))) continue; // drop overall podium
-    const g = ageGroupOf(r);
-    if (g) buckets.get(g).push(r);
-  }
-
+function renderGroupSections(wrap, groups, buckets) {
   for (const gender of ["Female", "Male"]) {
+    const inGender = groups.filter((g) => g.startsWith(gender));
+    if (inGender.length === 0) continue;
     const section = document.createElement("div");
     section.className = "board";
     const h2 = document.createElement("h2");
@@ -197,12 +183,44 @@ function renderAgeGroups(slices) {
     section.appendChild(h2);
     const grid = document.createElement("div");
     grid.className = "ag-grid";
-    for (const g of AGE_GROUPS.filter((x) => x.startsWith(gender))) {
-      grid.appendChild(ageGroupCard(g, topN(buckets.get(g), "Rank").slice(0, 3)));
+    for (const g of inGender) {
+      const rows = topN(buckets.get(g) || [], "AgeGroup").slice(0, 3);
+      grid.appendChild(ageGroupCard(g, rows));
     }
     section.appendChild(grid);
     wrap.appendChild(section);
   }
+}
+
+function renderAgeGroups(slices) {
+  const wrap = document.createElement("div");
+  const note = document.createElement("p");
+  note.className = "note";
+  wrap.appendChild(note);
+
+  const individuals = (slices.overall || []).filter((r) => r.Category !== "Team");
+  const present = sortGroups([
+    ...new Set(individuals.map(ageGroupOf).filter(Boolean)),
+  ]);
+
+  if (present.length === 0) {
+    note.textContent =
+      "Top 3 of each age group — the overall top-3 men and women are " +
+      "excluded. Groups populate once the feed includes athlete age data.";
+    renderGroupSections(wrap, DEFAULT_AGE_GROUPS, new Map());
+    return wrap;
+  }
+
+  note.textContent =
+    "Top 3 of each age group — the overall top-3 men and women are excluded.";
+  const exclude = overallPodiumBibs(slices);
+  const buckets = new Map(present.map((g) => [g, []]));
+  for (const r of individuals) {
+    if (exclude.has(String(r.Bib))) continue; // drop overall podium
+    const g = ageGroupOf(r);
+    if (g && buckets.has(g)) buckets.get(g).push(r);
+  }
+  renderGroupSections(wrap, present, buckets);
   return wrap;
 }
 
@@ -234,13 +252,12 @@ function sortValue(row, col) {
   return String(row[col.key] ?? "").toLowerCase();
 }
 
-// Gender of an athlete. The current feed has no gender letter (its
-// "Gender" field is a rank number), so this returns null until the
-// 2026 feed provides it — same wiring point as ageGroupOf().
+// Gender of an athlete, from the feed's Sex field ("m"/"f"), or null
+// when the feed has no gender data.
 function genderOf(row) {
-  const raw = String(row.Gender || "").trim().toLowerCase();
-  if (raw === "m" || raw === "male") return "Male";
-  if (raw === "f" || raw === "female") return "Female";
+  const s = String(row.Sex || "").trim().toLowerCase();
+  if (s === "m" || s === "male") return "Male";
+  if (s === "f" || s === "female") return "Female";
   return null;
 }
 
@@ -310,13 +327,21 @@ function renderOverall(slices) {
   const wrap = document.createElement("div");
   const all = slices.overall || [];
 
+  const hasAge = all.some((r) => ageGroupOf(r));
   const note = document.createElement("p");
   note.className = "note";
-  note.textContent =
-    "Every athlete. Click a column header to sort. The gender and " +
-    "age-group filters activate once the feed includes that data.";
+  note.textContent = hasAge
+    ? "Every athlete. Click a column header to sort, or filter by gender and age group."
+    : "Every athlete. Click a column header to sort. The gender and " +
+      "age-group filters activate once the feed includes that data.";
   wrap.appendChild(note);
 
+  const ageOptions = [
+    "all",
+    ...sortGroups([
+      ...new Set([...DEFAULT_AGE_GROUPS, ...all.map(ageGroupOf).filter(Boolean)]),
+    ]),
+  ];
   const controls = document.createElement("div");
   controls.className = "controls";
   controls.append(
@@ -329,7 +354,7 @@ function renderOverall(slices) {
     ),
     labelled(
       "Age group",
-      makeSelect(["all", ...AGE_GROUPS], state.fAgeGroup, (v) => {
+      makeSelect(ageOptions, state.fAgeGroup, (v) => {
         state.fAgeGroup = v;
         render();
       }),
