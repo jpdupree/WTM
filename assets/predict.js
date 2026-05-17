@@ -177,7 +177,6 @@ export function drawChart(canvas, entries) {
   const ordered = [...list].sort((a, b) => (a.dim ? 0 : 1) - (b.dim ? 0 : 1));
   for (const e of ordered) {
     const p = e.p;
-    const etaH = (p.etaSec ?? p.elapsedSec ?? 0) / 3600;
     const splits =
       p.splits && p.splits.length > 1
         ? p.splits
@@ -197,14 +196,25 @@ export function drawChart(canvas, entries) {
     });
     ctx.stroke();
 
-    // projection from the last lap to the goal
-    if (!p.reached) {
-      ctx.setLineDash([6, 4]);
-      ctx.beginPath();
-      ctx.moveTo(X(last.sec / 3600), Y(last.miles));
-      ctx.lineTo(X(etaH), Y(p.goalMiles));
-      ctx.stroke();
-      ctx.setLineDash([]);
+    // projection — a ray at the recent pace, clipped to the chart, so a
+    // slow athlete's line visibly falls short of the goal in the window.
+    if (!p.reached && p.pace) {
+      const startH = last.sec / 3600;
+      if (startH < CHART_MAX_HOURS) {
+        const milesPerHour = 3600 / p.pace;
+        const goalH = startH + (p.goalMiles - last.miles) / milesPerHour;
+        const endH = Math.min(goalH, CHART_MAX_HOURS);
+        const endMiles =
+          goalH <= CHART_MAX_HOURS
+            ? p.goalMiles
+            : last.miles + (CHART_MAX_HOURS - startH) * milesPerHour;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(X(startH), Y(last.miles));
+        ctx.lineTo(X(endH), Y(endMiles));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
     }
 
     // a dot at each completed lap
