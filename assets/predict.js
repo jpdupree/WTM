@@ -28,6 +28,31 @@ export const SERIES_COLORS = [
 // The predictive chart's time axis is fixed to the race window.
 export const CHART_MAX_HOURS = 25.5;
 
+// Per-lap duration fields in the enriched feed, in order. Note lap 21
+// is "Twentyfirstlap" (lower-case L) — that is the actual feed key.
+const LAP_FIELDS = [
+  "FirstLap", "SecondLap", "ThirdLap", "FourthLap", "FifthLap",
+  "SixthLap", "SeventhLap", "EighthLap", "NinthLap", "TenthLap",
+  "EleventhLap", "TwelfthLap", "ThirteenthLap", "FourteenthLap",
+  "FifteenthLap", "SixteenthLap", "SeventeenthLap", "EighteenthLap",
+  "NineteenthLap", "TwentiethLap", "Twentyfirstlap", "TwentysecondLap",
+  "TwentythirdLap", "TwentyfourthLap", "TwentyfifthLap",
+];
+
+// Cumulative { miles, sec } points at each completed lap, from the feed's
+// per-lap durations. Starts at the origin; empty when there's no lap data.
+function lapSplits(row, milesPerLap) {
+  const splits = [{ miles: 0, sec: 0 }];
+  let cum = 0;
+  for (let i = 0; i < LAP_FIELDS.length; i++) {
+    const d = hmsToSec(row?.[LAP_FIELDS[i]]);
+    if (d == null) break;
+    cum += d;
+    splits.push({ miles: (i + 1) * milesPerLap, sec: cum });
+  }
+  return splits;
+}
+
 // Project an athlete's run toward a mileage goal at their current pace.
 export function project(row, goalMiles, lapMiles) {
   const laps = parseInt(row?.Laps, 10) || 0;
@@ -43,9 +68,10 @@ export function project(row, goalMiles, lapMiles) {
     pace != null && elapsedSec != null && !reached
       ? elapsedSec + remaining * pace
       : elapsedSec;
+  const splits = lapSplits(row, laps > 0 ? miles / laps : lapMiles);
   return {
     laps, miles, elapsedSec, lastLapSec, avgPace, lastPace, pace,
-    goalMiles, remaining, etaSec, reached, lapMiles,
+    goalMiles, remaining, etaSec, reached, lapMiles, splits,
   };
 }
 
@@ -136,22 +162,43 @@ export function drawChart(canvas, entries) {
   const ordered = [...list].sort((a, b) => (a.dim ? 0 : 1) - (b.dim ? 0 : 1));
   for (const e of ordered) {
     const p = e.p;
-    const elapsedH = (p.elapsedSec || 0) / 3600;
     const etaH = (p.etaSec ?? p.elapsedSec ?? 0) / 3600;
+    const splits =
+      p.splits && p.splits.length > 1
+        ? p.splits
+        : [{ miles: 0, sec: 0 }, { miles: p.miles, sec: p.elapsedSec || 0 }];
+    const last = splits[splits.length - 1];
     ctx.globalAlpha = e.dim ? 0.15 : 1;
+
+    // actual lap-by-lap progression
     ctx.strokeStyle = e.color;
     ctx.lineWidth = e.dim ? 2 : 2.5;
-    ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(elapsedH), Y(p.miles)); ctx.stroke();
+    ctx.beginPath();
+    splits.forEach((s, i) => {
+      const x = X(s.sec / 3600);
+      const y = Y(s.miles);
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+
+    // projection from the last lap to the goal
     if (!p.reached) {
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(X(elapsedH), Y(p.miles));
+      ctx.moveTo(X(last.sec / 3600), Y(last.miles));
       ctx.lineTo(X(etaH), Y(p.goalMiles));
       ctx.stroke();
       ctx.setLineDash([]);
     }
+
+    // a dot at each completed lap
     ctx.fillStyle = e.color;
-    ctx.beginPath(); ctx.arc(X(elapsedH), Y(p.miles), 4, 0, Math.PI * 2); ctx.fill();
+    for (let i = 1; i < splits.length; i++) {
+      ctx.beginPath();
+      ctx.arc(X(splits[i].sec / 3600), Y(splits[i].miles), e.dim ? 2.5 : 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.globalAlpha = 1;
 

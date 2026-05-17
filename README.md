@@ -70,8 +70,9 @@ Then: Actions tab → **Fetch WTM results** → **Run workflow** to populate
 > 2025 sample data (`data/sample-results-2025.json`, built into
 > `data/results.json`) while the feed format is validated for 2026. For
 > race weekend, the live feed must return the enriched report — fields
-> `Sex` (`m`/`f`) and `AgeGroupCategory` (e.g. `Male 50-54`) — then
-> uncomment the `schedule:` block in `fetch-results.yml`.
+> `Sex` (`m`/`f`), `AgeGroupCategory` (e.g. `Male 50-54`), and the
+> per-lap split times `FirstLap`…`TwentyfifthLap` (the chart's lap
+> dots) — then uncomment the `schedule:` block in `fetch-results.yml`.
 
 ### 3. Set up Firebase (live control state)
 
