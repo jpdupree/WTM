@@ -139,7 +139,12 @@ export function drawChart(canvas, entries) {
   const goal = list.length ? Math.max(...list.map((e) => e.p.goalMiles)) : 50;
   const maxMiles = list.reduce((m, e) => Math.max(m, e.p.miles), 0);
   const xMax = CHART_MAX_HOURS;
-  const yMax = Math.max(goal, maxMiles, 1) * 1.12;
+
+  // The mileage axis steps in multiples of 5, so labels never land on
+  // values like 47 or 71 — only 45, 70, 90, etc.
+  const needed = Math.max(goal, maxMiles, 1) * 1.05;
+  const yStep = [5, 10, 15, 20, 25, 30, 40, 50].find((s) => needed / s <= 5) || 50;
+  const yMax = Math.ceil(needed / yStep) * yStep;
 
   const X = (hrs) => padL + (Math.max(0, Math.min(hrs, xMax)) / xMax) * plotW;
   const Y = (mi) => padT + plotH - (mi / yMax) * plotH;
@@ -148,10 +153,10 @@ export function drawChart(canvas, entries) {
   ctx.fillStyle = COL.muted;
   ctx.font = "11px Segoe UI, sans-serif";
   ctx.lineWidth = 1;
-  for (let i = 0; i <= 5; i++) {
-    const y = padT + (plotH / 5) * i;
+  for (let mi = 0; mi <= yMax; mi += yStep) {
+    const y = Y(mi);
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
-    ctx.fillText((yMax * (1 - i / 5)).toFixed(0) + " mi", 6, y + 4);
+    ctx.fillText(mi + " mi", 6, y + 4);
   }
   for (let hrs = 0; hrs <= 24; hrs += 3) {
     const x = X(hrs);
