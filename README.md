@@ -64,8 +64,14 @@ Add each with the matching RaceResult API URL as the value:
 A slice whose secret is missing is simply skipped.
 
 Then: Actions tab → **Fetch WTM results** → **Run workflow** to populate
-`data/results.json`. After that it runs every 10 minutes. Tighten the
-`cron` in the workflow for race weekend (GitHub's minimum is 5 minutes).
+`data/results.json`.
+
+> **Auto-fetch is currently paused.** The dashboard runs on committed
+> 2025 sample data (`data/sample-results-2025.json`, built into
+> `data/results.json`) while the feed format is validated for 2026. For
+> race weekend, the live feed must return the enriched report — fields
+> `Sex` (`m`/`f`) and `AgeGroupCategory` (e.g. `Male 50-54`) — then
+> uncomment the `schedule:` block in `fetch-results.yml`.
 
 ### 3. Set up Firebase (live control state)
 

@@ -2,10 +2,12 @@ name: Fetch WTM results
 
 on:
   workflow_dispatch:
-  schedule:
-    # Every 10 minutes. GitHub may delay or skip runs under load.
-    # Off-season this just no-ops; tighten the cron for race weekend.
-    - cron: "*/10 * * * *"
+  # Auto-fetch is PAUSED. The dashboard is running on the committed 2025
+  # sample data (data/results.json) while the feed format is validated
+  # for the live event. Re-enable this schedule for race weekend, once
+  # the feed returns the enriched report (Sex + AgeGroupCategory).
+  # schedule:
+  #   - cron: "*/10 * * * *"
 
 # Avoid overlapping runs racing each other's commits.
 concurrency:
