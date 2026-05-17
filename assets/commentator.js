@@ -146,7 +146,9 @@ function pushSolo() {
   soloLive.append(name, detail);
 
   if (configured) {
-    writeControl("athlete", { ...r, _updatedAt: new Date().toISOString() }).catch(
+    // Written as a one-row array so vMix's JSON Data Source reads it
+    // (vMix expects a list of rows, like the RaceResult feeds).
+    writeControl("athlete", [{ ...r, _updatedAt: new Date().toISOString() }]).catch(
       (err) => {
         soloLive.className = "live-panel error";
         soloLive.append(document.createTextNode(" — sync failed: " + err.message));
@@ -163,13 +165,12 @@ function pushNews(items) {
   const text = items.join("    •    ");
   newsLive.textContent = text || "Ticker empty.";
   if (configured) {
-    writeControl("news", {
-      items,
-      text,
-      updatedAt: new Date().toISOString(),
-    }).catch((err) => {
-      newsLive.textContent = "Sync failed: " + err.message;
-    });
+    // One-row array so vMix's JSON Data Source can read the `text` field.
+    writeControl("news", [{ text, updatedAt: new Date().toISOString() }]).catch(
+      (err) => {
+        newsLive.textContent = "Sync failed: " + err.message;
+      },
+    );
   }
 }
 
