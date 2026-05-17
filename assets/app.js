@@ -13,7 +13,13 @@ const TABS = [
 const TOP_N = 10;
 const REFRESH_MS = 30_000;
 
-let state = { data: null, active: "overall" };
+let state = {
+  data: null,
+  active: "overall",
+  sort: { key: "Rank", dir: 1 },
+  fGender: "all",
+  fAgeGroup: "all",
+};
 
 function num(v) {
   const n = parseFloat(String(v ?? "").replace(/[^\d.]/g, ""));
@@ -200,6 +206,168 @@ function renderAgeGroups(slices) {
   return wrap;
 }
 
+// --- Overall tab: full sortable, filterable table --------------------
+
+const OVERALL_COLS = [
+  { key: "Rank", label: "#", cls: "rank", type: "num" },
+  { key: "Bib", label: "Bib", cls: "num hide-sm", type: "num" },
+  { key: "Name", label: "Name", cls: "name", type: "text" },
+  { key: "Nation", label: "Nat", cls: "muted hide-sm", type: "text" },
+  { key: "Category", label: "Type", cls: "muted hide-sm", type: "text" },
+  { key: "Laps", label: "Laps", cls: "num", type: "num" },
+  { key: "Distance", label: "Miles", cls: "num", type: "num" },
+  { key: "TotalTime", label: "Total", cls: "num", type: "time" },
+  { key: "LastLapTime", label: "Last Lap", cls: "num hide-sm", type: "time" },
+  { key: "LastSeen", label: "Last Seen", cls: "muted hide-sm", type: "text" },
+];
+
+function hmsSec(s) {
+  const p = String(s ?? "").split(":").map((x) => parseInt(x, 10));
+  if (p.length < 2 || p.some((n) => Number.isNaN(n))) return Infinity;
+  if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+  return p[0] * 60 + p[1];
+}
+
+function sortValue(row, col) {
+  if (col.type === "num") return num(row[col.key]);
+  if (col.type === "time") return hmsSec(row[col.key]);
+  return String(row[col.key] ?? "").toLowerCase();
+}
+
+// Gender of an athlete. The current feed has no gender letter (its
+// "Gender" field is a rank number), so this returns null until the
+// 2026 feed provides it — same wiring point as ageGroupOf().
+function genderOf(row) {
+  const raw = String(row.Gender || "").trim().toLowerCase();
+  if (raw === "m" || raw === "male") return "Male";
+  if (raw === "f" || raw === "female") return "Female";
+  return null;
+}
+
+function makeSelect(options, current, onChange) {
+  const sel = document.createElement("select");
+  for (const o of options) {
+    const opt = document.createElement("option");
+    opt.value = o;
+    opt.textContent = o === "all" ? "All" : o;
+    if (o === current) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener("change", () => onChange(sel.value));
+  return sel;
+}
+
+function labelled(text, el) {
+  const field = document.createElement("label");
+  field.className = "field";
+  const span = document.createElement("span");
+  span.textContent = text;
+  field.append(span, el);
+  return field;
+}
+
+function buildSortableTable(rows) {
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const htr = document.createElement("tr");
+  for (const c of OVERALL_COLS) {
+    const th = document.createElement("th");
+    th.className = "sortable" + (c.cls.includes("hide-sm") ? " hide-sm" : "");
+    th.textContent = c.label;
+    if (state.sort.key === c.key) {
+      const arrow = document.createElement("span");
+      arrow.className = "arrow";
+      arrow.textContent = state.sort.dir > 0 ? " ▲" : " ▼";
+      th.appendChild(arrow);
+    }
+    th.addEventListener("click", () => {
+      if (state.sort.key === c.key) state.sort.dir *= -1;
+      else state.sort = { key: c.key, dir: 1 };
+      render();
+    });
+    htr.appendChild(th);
+  }
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const c of OVERALL_COLS) {
+      const td = document.createElement("td");
+      td.className = c.cls;
+      const v = row[c.key];
+      td.textContent = v == null || v === "" ? "—" : String(v);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  return table;
+}
+
+function renderOverall(slices) {
+  const wrap = document.createElement("div");
+  const all = slices.overall || [];
+
+  const note = document.createElement("p");
+  note.className = "note";
+  note.textContent =
+    "Every athlete. Click a column header to sort. The gender and " +
+    "age-group filters activate once the feed includes that data.";
+  wrap.appendChild(note);
+
+  const controls = document.createElement("div");
+  controls.className = "controls";
+  controls.append(
+    labelled(
+      "Gender",
+      makeSelect(["all", "Male", "Female"], state.fGender, (v) => {
+        state.fGender = v;
+        render();
+      }),
+    ),
+    labelled(
+      "Age group",
+      makeSelect(["all", ...AGE_GROUPS], state.fAgeGroup, (v) => {
+        state.fAgeGroup = v;
+        render();
+      }),
+    ),
+  );
+  wrap.appendChild(controls);
+
+  let rows = all;
+  if (state.fGender !== "all") rows = rows.filter((r) => genderOf(r) === state.fGender);
+  if (state.fAgeGroup !== "all") rows = rows.filter((r) => ageGroupOf(r) === state.fAgeGroup);
+
+  const col = OVERALL_COLS.find((c) => c.key === state.sort.key) || OVERALL_COLS[0];
+  rows = [...rows].sort((a, b) => {
+    const va = sortValue(a, col);
+    const vb = sortValue(b, col);
+    if (va < vb) return -state.sort.dir;
+    if (va > vb) return state.sort.dir;
+    return 0;
+  });
+
+  const count = document.createElement("p");
+  count.className = "count";
+  count.textContent = `${rows.length} of ${all.length} athletes`;
+  wrap.appendChild(count);
+
+  if (rows.length === 0) {
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = all.length
+      ? "No athletes match the filter (gender/age data not in the feed yet)."
+      : "No results loaded yet.";
+    wrap.appendChild(p);
+  } else {
+    wrap.appendChild(buildSortableTable(rows));
+  }
+  return wrap;
+}
+
 function render() {
   const content = document.getElementById("content");
   content.innerHTML = "";
@@ -207,9 +375,10 @@ function render() {
 
   if (state.active === "agegroups") {
     content.appendChild(renderAgeGroups(slices));
+  } else if (state.active === "overall") {
+    content.appendChild(renderOverall(slices));
   } else {
     const labels = {
-      overall: "Overall — Top 10",
       men: "Men — Top 10",
       women: "Women — Top 10",
       teams: "Teams — Top 10",
