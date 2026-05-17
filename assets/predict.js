@@ -53,22 +53,37 @@ function lapSplits(row, milesPerLap) {
   return splits;
 }
 
-// Project an athlete's run toward a mileage goal at their current pace.
+// Laps averaged for the pace projection — recent enough to reflect
+// fatigue and the night slow-down, smoothed enough to absorb one
+// outlier lap (a long pit/rest stop). Change to taste.
+const PROJECTION_LAPS = 3;
+
+// Average pace (sec/mile) over the last `n` completed laps.
+function recentPace(splits, n) {
+  if (splits.length < 2) return null;
+  const last = splits[splits.length - 1];
+  const back = splits[Math.max(0, splits.length - 1 - n)];
+  const dMiles = last.miles - back.miles;
+  return dMiles > 0 ? (last.sec - back.sec) / dMiles : null;
+}
+
+// Project an athlete's run toward a mileage goal at their recent pace.
 export function project(row, goalMiles, lapMiles) {
   const laps = parseInt(row?.Laps, 10) || 0;
   const miles = parseFloat(row?.Distance) || laps * lapMiles;
   const elapsedSec = hmsToSec(row?.TotalTime);
   const lastLapSec = hmsToSec(row?.LastLapTime);
+  const splits = lapSplits(row, laps > 0 ? miles / laps : lapMiles);
   const avgPace = miles > 0 && elapsedSec ? elapsedSec / miles : null;
   const lastPace = lastLapSec ? lastLapSec / lapMiles : null;
-  const pace = lastPace ?? avgPace; // seconds per mile
+  // Recent-laps pace, falling back to whole-race average then last lap.
+  const pace = recentPace(splits, PROJECTION_LAPS) ?? avgPace ?? lastPace;
   const remaining = Math.max(0, goalMiles - miles);
   const reached = miles >= goalMiles;
   const etaSec =
     pace != null && elapsedSec != null && !reached
       ? elapsedSec + remaining * pace
       : elapsedSec;
-  const splits = lapSplits(row, laps > 0 ? miles / laps : lapMiles);
   return {
     laps, miles, elapsedSec, lastLapSec, avgPace, lastPace, pace,
     goalMiles, remaining, etaSec, reached, lapMiles, splits,
