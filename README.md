@@ -87,8 +87,23 @@ change. `data/sample-results-2025.json` is kept as an offline fixture.
    }
    ```
    vMix and the graphics read without logging in, so read must be public.
-   `control` carries commentator state; `rabbits` carries camera-operator
-   GPS (see `rabbit.html`).
+   `control` carries commentator state; `rabbits` carries camera GPS,
+   written by the Larix Tuner poller (`scripts/rabbit-poll.mjs`).
+
+## Camera GPS (Larix Tuner)
+
+Camera operators stream with Larix Broadcaster; their GPS is read from
+the Larix Tuner API and mirrored into Firebase `/rabbits`, where every
+map picks it up. The poller is a standalone script — run it on an
+always-on machine whose public IP is whitelisted in Larix Tuner:
+
+1. In Larix Tuner: enable the API (Account → API setup), copy the
+   Client ID, generate an API key, and whitelist the machine's IP.
+2. Copy `scripts/larix-credentials.example.json` to
+   `scripts/larix-credentials.json` and fill in `clientId` / `apiKey`
+   (this file is git-ignored — never commit it).
+3. Set each camera's device **description** in Tuner to its map name.
+4. Run it (Node 18+): `node scripts/rabbit-poll.mjs` — leave it running.
 4. Project settings → **Your apps** → add a **Web app** → copy the config
    values into `assets/firebase-config.js` (these values are *not* secret).
 
