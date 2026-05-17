@@ -1,7 +1,7 @@
 "use strict";
 
 // Tabs: each "slice" key maps to one of the four committed feeds.
-// "agegroups" is derived from the overall feed by the Category field.
+// "agegroups" splits the overall feed into 18 male/female age groups.
 const TABS = [
   { id: "overall", label: "Overall" },
   { id: "men", label: "Men" },
@@ -87,27 +87,116 @@ function boardEl(title, rows, rankField) {
   return div;
 }
 
-function renderAgeGroups(overall) {
+// The nine WTM age brackets, split by gender into 18 groups.
+const AGE_BRACKETS = [
+  "18-24", "25-29", "30-34", "35-39", "40-44",
+  "45-49", "50-54", "55-59", "60+",
+];
+const AGE_GROUPS = [
+  ...AGE_BRACKETS.map((b) => "Female " + b),
+  ...AGE_BRACKETS.map((b) => "Male " + b),
+];
+
+// Map a feed row to one of the 18 age-group labels, or null if unknown.
+// The current results feed carries NO age data — Category is only
+// "Individual" / "Team" — so this returns null for everyone. Once the
+// 2026 feed includes gender + age group, normalize that field here and
+// match it to an AGE_GROUPS label; the rest of the tab then populates.
+function ageGroupOf(row) {
+  const raw = String(row.Category || "").trim().toLowerCase();
+  for (const g of AGE_GROUPS) {
+    if (raw === g.toLowerCase()) return g;
+  }
+  return null;
+}
+
+// Bibs of the overall top-3 men and top-3 women — excluded from the
+// age-group standings (they get the overall awards instead).
+function overallPodiumBibs(slices) {
+  const bibs = new Set();
+  for (const key of ["men", "women"]) {
+    topN(slices[key] || [], "Rank")
+      .slice(0, 3)
+      .forEach((r) => bibs.add(String(r.Bib)));
+  }
+  return bibs;
+}
+
+function miniTable(rows) {
+  const table = document.createElement("table");
+  table.className = "mini";
+  const tbody = document.createElement("tbody");
+  rows.forEach((row, i) => {
+    const tr = document.createElement("tr");
+    tr.className = "r" + (i + 1);
+    const cells = [
+      { v: i + 1, cls: "rank" },
+      { v: row.Name, cls: "name" },
+      { v: row.Laps, cls: "num" },
+      { v: (row.Distance ?? "") + " mi", cls: "num" },
+    ];
+    for (const c of cells) {
+      const td = document.createElement("td");
+      td.className = c.cls;
+      td.textContent = c.v == null || c.v === "" || c.v === " mi" ? "—" : String(c.v);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function ageGroupCard(name, rows) {
+  const card = document.createElement("div");
+  card.className = "ag-card";
+  const h3 = document.createElement("h3");
+  h3.textContent = name;
+  card.appendChild(h3);
+  if (rows.length === 0) {
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = "Awaiting age data";
+    card.appendChild(p);
+  } else {
+    card.appendChild(miniTable(rows));
+  }
+  return card;
+}
+
+function renderAgeGroups(slices) {
   const wrap = document.createElement("div");
-  if (!overall || overall.length === 0) {
-    wrap.innerHTML = '<p class="empty">No data yet.</p>';
-    return wrap;
+
+  const note = document.createElement("p");
+  note.className = "note";
+  note.textContent =
+    "Top 3 of each age group — the overall top-3 men and women are " +
+    "excluded. Groups populate once the feed includes athlete age data.";
+  wrap.appendChild(note);
+
+  const exclude = overallPodiumBibs(slices);
+  const buckets = new Map(AGE_GROUPS.map((g) => [g, []]));
+  for (const r of slices.overall || []) {
+    if (r.Category === "Team") continue; // individuals only
+    if (exclude.has(String(r.Bib))) continue; // drop overall podium
+    const g = ageGroupOf(r);
+    if (g) buckets.get(g).push(r);
   }
-  const groups = new Map();
-  for (const r of overall) {
-    const cat = r.Category || "Uncategorized";
-    if (!groups.has(cat)) groups.set(cat, []);
-    groups.get(cat).push(r);
+
+  for (const gender of ["Female", "Male"]) {
+    const section = document.createElement("div");
+    section.className = "board";
+    const h2 = document.createElement("h2");
+    h2.textContent = gender + " — Age Groups";
+    section.appendChild(h2);
+    const grid = document.createElement("div");
+    grid.className = "ag-grid";
+    for (const g of AGE_GROUPS.filter((x) => x.startsWith(gender))) {
+      grid.appendChild(ageGroupCard(g, topN(buckets.get(g), "Rank").slice(0, 3)));
+    }
+    section.appendChild(grid);
+    wrap.appendChild(section);
   }
-  const grid = document.createElement("div");
-  grid.className = "grid";
-  // AgeGroup holds the within-category rank; fall back to overall Rank.
-  for (const cat of [...groups.keys()].sort()) {
-    const rows = groups.get(cat);
-    const field = rows.some((r) => Number.isFinite(num(r.AgeGroup))) ? "AgeGroup" : "Rank";
-    grid.appendChild(boardEl(cat, rows, field));
-  }
-  wrap.appendChild(grid);
   return wrap;
 }
 
@@ -117,7 +206,7 @@ function render() {
   const slices = (state.data && state.data.slices) || {};
 
   if (state.active === "agegroups") {
-    content.appendChild(renderAgeGroups(slices.overall));
+    content.appendChild(renderAgeGroups(slices));
   } else {
     const labels = {
       overall: "Overall — Top 10",
