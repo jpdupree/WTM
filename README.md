@@ -79,9 +79,16 @@ change. `data/sample-results-2025.json` is kept as an offline fixture.
 2. Build → **Realtime Database** → Create database.
 3. Set its rules to (crew tool — open read/write, no sensitive data):
    ```json
-   { "rules": { "control": { ".read": true, ".write": true } } }
+   {
+     "rules": {
+       "control": { ".read": true, ".write": true },
+       "rabbits": { ".read": true, ".write": true }
+     }
+   }
    ```
    vMix and the graphics read without logging in, so read must be public.
+   `control` carries commentator state; `rabbits` carries camera-operator
+   GPS (see `rabbit.html`).
 4. Project settings → **Your apps** → add a **Web app** → copy the config
    values into `assets/firebase-config.js` (these values are *not* secret).
 
