@@ -1,6 +1,6 @@
 import { configured, writeControl } from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
-import { project, drawChart, chartLegend, secToHms, SERIES_COLORS } from "./predict.js";
+import { project, drawChart, chartLegend, markDim, secToHms, SERIES_COLORS } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
 import { VMIX_LINKS } from "./links.js";
 
@@ -8,7 +8,7 @@ const REFRESH_MS = 30_000;
 
 let results = { slices: {} };
 let soloBib = null;
-const pred = { bibs: [], goalMiles: 50 };
+const pred = { bibs: [], goalMiles: 50, focus: [] };
 
 const $ = (id) => document.getElementById(id);
 const overall = () => (results.slices && results.slices.overall) || [];
@@ -201,31 +201,37 @@ try {
   console.error("Course map failed to load:", err);
 }
 
+// Replace the selection (and reset any focus) with a new set of bibs.
+function setSelection(bibs) {
+  pred.bibs = bibs;
+  pred.focus = [];
+  predSearch.value = "";
+  predResults.innerHTML = "";
+  pushPrediction();
+}
+
 predSearch.addEventListener("input", () =>
-  renderSearch(predSearch.value, predResults, (r) => {
-    pred.bibs = [String(r.Bib)];
-    predSearch.value = "";
-    predResults.innerHTML = "";
-    pushPrediction();
-  }),
+  renderSearch(predSearch.value, predResults, (r) => setSelection([String(r.Bib)])),
 );
 
 // A Top 10 button loads all ten onto the chart and map at once.
 document.querySelectorAll("[data-slice]").forEach((b) =>
-  b.addEventListener("click", () => {
-    pred.bibs = topTen(b.dataset.slice).map((r) => String(r.Bib));
-    predSearch.value = "";
-    predResults.innerHTML = "";
-    pushPrediction();
-  }),
+  b.addEventListener("click", () =>
+    setSelection(topTen(b.dataset.slice).map((r) => String(r.Bib))),
+  ),
 );
 
-$("pred-clear").addEventListener("click", () => {
-  pred.bibs = [];
-  predSearch.value = "";
-  predResults.innerHTML = "";
+$("pred-clear").addEventListener("click", () => setSelection([]));
+
+// Tap an athlete in the readout to focus them — others dim on the chart
+// and map. Tapping again releases; several can be focused at once.
+function toggleFocus(bib) {
+  const b = String(bib);
+  const i = pred.focus.indexOf(b);
+  if (i >= 0) pred.focus.splice(i, 1);
+  else pred.focus.push(b);
   pushPrediction();
-});
+}
 
 predGoal.addEventListener("input", () => {
   pred.goalMiles = parseFloat(predGoal.value) || 0;
@@ -258,12 +264,15 @@ function predEntries() {
 
 function renderPrediction() {
   const entries = predEntries();
+  markDim(entries, pred.focus);
   drawChart(predChart, entries);
   predLegend.innerHTML = "";
   predLegend.appendChild(chartLegend(entries));
   if (cmap) {
     cmap.setAthletes(
-      entries.map((e) => ({ mile: e.p.miles, label: e.bib, color: e.color })),
+      entries.map((e) => ({
+        mile: e.p.miles, label: e.bib, color: e.color, dim: e.dim,
+      })),
     );
   }
 
@@ -274,9 +283,13 @@ function renderPrediction() {
       : "Pick an athlete or a Top 10 group.";
     return;
   }
+  const focusActive = pred.focus.length > 0;
   for (const e of entries) {
-    const line = document.createElement("div");
-    line.className = "pred-line";
+    const line = document.createElement("button");
+    line.type = "button";
+    line.className =
+      "pred-line" +
+      (e.dim ? " dimmed" : focusActive ? " focused" : "");
     const sw = document.createElement("span");
     sw.className = "legend-swatch";
     sw.style.background = e.color;
@@ -287,6 +300,7 @@ function renderPrediction() {
           (e.p.reached ? "goal reached" : `ETA ${secToHms(e.p.etaSec)}`),
       ),
     );
+    line.addEventListener("click", () => toggleFocus(e.bib));
     predReadout.appendChild(line);
   }
 }
@@ -297,6 +311,7 @@ function pushPrediction() {
     writeControl("prediction", {
       bibs: pred.bibs,
       goalMiles: pred.goalMiles,
+      focus: pred.focus,
       updatedAt: new Date().toISOString(),
     }).catch(() => {});
   }

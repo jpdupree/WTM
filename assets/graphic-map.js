@@ -1,6 +1,6 @@
 import { LAP_MILES } from "./course-data.js";
-import { project, advance, SERIES_COLORS } from "./predict.js";
-import { startGraphic, rowByBib, predBibs } from "./graphic-base.js";
+import { project, advance, markDim, SERIES_COLORS } from "./predict.js";
+import { startGraphic, rowByBib, predBibs, predFocus } from "./graphic-base.js";
 import { createCourseMap } from "./coursemap.js";
 
 const banner = document.getElementById("g-banner");
@@ -10,21 +10,23 @@ const cmap = createCourseMap("map");
 // dots are extrapolated forward once per second and re-sync on each feed.
 const MAX_EXTRAPOLATE_SEC = 600;
 let basis = [];
+let focus = [];
 
 function tick() {
   if (basis.length === 0) return;
   const now = Date.now();
-  cmap.setAthletes(
-    basis.map((b) => {
-      const secs = Math.min(MAX_EXTRAPOLATE_SEC, (now - b.t) / 1000);
-      return { mile: advance(b.p, secs).miles, label: b.bib, color: b.color };
-    }),
-  );
+  const entries = basis.map((b) => {
+    const secs = Math.min(MAX_EXTRAPOLATE_SEC, (now - b.t) / 1000);
+    return { mile: advance(b.p, secs).miles, label: b.bib, color: b.color, bib: b.bib };
+  });
+  markDim(entries, focus);
+  cmap.setAthletes(entries);
 }
 
 startGraphic((pred) => {
   const bibs = predBibs(pred);
   const goal = (pred && pred.goalMiles) || 50;
+  focus = predFocus(pred);
   const t = Date.now();
   basis = [];
   bibs.forEach((bib, i) => {

@@ -57,6 +57,16 @@ export function advance(p, elapsedSec) {
   return { ...p, miles, laps: Math.floor(miles / p.lapMiles) };
 }
 
+// Mark which entries are dimmed: when `focus` is non-empty, every entry
+// whose bib is not in it is dimmed so the focused ones stand out.
+export function markDim(entries, focus) {
+  const set = new Set((focus || []).map(String));
+  for (const e of entries || []) {
+    e.dim = set.size > 0 && !set.has(String(e.bib));
+  }
+  return entries;
+}
+
 const COL = {
   axis: "#5a6b7a",
   grid: "rgba(120,140,160,0.18)",
@@ -122,12 +132,15 @@ export function drawChart(canvas, entries) {
   ctx.fillStyle = COL.goal;
   ctx.fillText("Goal " + goal + " mi", padL + plotW - 80, Y(goal) - 6);
 
-  for (const e of list) {
+  // Dimmed lines first so focused ones draw on top.
+  const ordered = [...list].sort((a, b) => (a.dim ? 0 : 1) - (b.dim ? 0 : 1));
+  for (const e of ordered) {
     const p = e.p;
     const elapsedH = (p.elapsedSec || 0) / 3600;
     const etaH = (p.etaSec ?? p.elapsedSec ?? 0) / 3600;
+    ctx.globalAlpha = e.dim ? 0.15 : 1;
     ctx.strokeStyle = e.color;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = e.dim ? 2 : 2.5;
     ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(elapsedH), Y(p.miles)); ctx.stroke();
     if (!p.reached) {
       ctx.setLineDash([6, 4]);
@@ -140,6 +153,7 @@ export function drawChart(canvas, entries) {
     ctx.fillStyle = e.color;
     ctx.beginPath(); ctx.arc(X(elapsedH), Y(p.miles), 4, 0, Math.PI * 2); ctx.fill();
   }
+  ctx.globalAlpha = 1;
 
   if (list.length === 0) {
     ctx.fillStyle = COL.muted;
@@ -154,6 +168,7 @@ export function chartLegend(entries) {
   for (const e of entries || []) {
     const item = document.createElement("span");
     item.className = "legend-item";
+    if (e.dim) item.style.opacity = "0.4";
     const sw = document.createElement("span");
     sw.className = "legend-swatch";
     sw.style.background = e.color;

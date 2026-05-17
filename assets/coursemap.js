@@ -51,16 +51,21 @@ export function createCourseMap(elId) {
 
   const athletes = L.layerGroup().addTo(map);
 
-  // entries: [{ mile, label, color }]
+  // entries: [{ mile, label, color, dim }]
   function setAthletes(entries) {
     athletes.clearLayers();
     for (const e of entries || []) {
       const frac = ((e.mile % LAP_MILES) + LAP_MILES) % LAP_MILES;
+      const dim = !!e.dim;
       const dot = L.circleMarker(latLngAtMile(frac), {
-        radius: 9, color: "#1a1207", weight: 2,
-        fillColor: e.color, fillOpacity: 1,
+        radius: dim ? 6 : 9,
+        color: "#1a1207",
+        weight: 2,
+        fillColor: e.color,
+        fillOpacity: dim ? 0.3 : 1,
+        opacity: dim ? 0.3 : 1,
       }).addTo(athletes);
-      if (e.label) {
+      if (e.label && !dim) {
         dot.bindTooltip(String(e.label), {
           permanent: true, direction: "right", className: "athlete-tip",
         });

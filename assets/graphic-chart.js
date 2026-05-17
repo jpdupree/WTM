@@ -1,6 +1,6 @@
 import { LAP_MILES } from "./course-data.js";
-import { project, drawChart, chartLegend, SERIES_COLORS } from "./predict.js";
-import { startGraphic, rowByBib, predBibs } from "./graphic-base.js";
+import { project, drawChart, chartLegend, markDim, SERIES_COLORS } from "./predict.js";
+import { startGraphic, rowByBib, predBibs, predFocus } from "./graphic-base.js";
 
 const canvas = document.getElementById("g-canvas");
 const nameEl = document.getElementById("g-name");
@@ -28,9 +28,11 @@ startGraphic((pred) => {
         p: project(r, goal, LAP_MILES),
         label: `#${r.Bib} ${r.Name}`,
         color: SERIES_COLORS[i % SERIES_COLORS.length],
+        bib: String(r.Bib),
       });
     }
   });
+  markDim(entries, predFocus(pred));
 
   if (entries.length === 0) {
     return setEmpty(bibs.length ? "Selected athletes not in feed yet" : "Waiting for selection…");

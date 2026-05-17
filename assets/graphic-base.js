@@ -13,6 +13,7 @@ if (override) {
   pred = {
     bibs: override.split(",").map((s) => s.trim()).filter(Boolean),
     goalMiles: parseFloat(params.get("goal")) || 50,
+    focus: (params.get("focus") || "").split(",").map((s) => s.trim()).filter(Boolean),
   };
 }
 
@@ -23,6 +24,10 @@ export function predBibs(p) {
   if (Array.isArray(p.bibs)) return p.bibs;
   if (p.bib != null) return [p.bib];
   return [];
+}
+
+export function predFocus(p) {
+  return p && Array.isArray(p.focus) ? p.focus : [];
 }
 
 export function rowByBib(bib) {
