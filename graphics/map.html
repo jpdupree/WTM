@@ -4,17 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WTM — Course Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="../assets/graphic.css" />
 </head>
-<body>
-  <div class="card">
-    <div class="g-head">
-      <span id="g-name" class="g-name"></span>
-      <span id="g-meta" class="g-meta"></span>
-    </div>
-    <canvas id="g-canvas"></canvas>
-    <div id="g-empty" class="g-empty">Waiting for selection…</div>
-  </div>
+<body class="map-body">
+  <div id="map" class="fullmap"></div>
+  <div id="g-banner" class="map-banner">Waiting for selection…</div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="../assets/graphic-map.js"></script>
 </body>
 </html>

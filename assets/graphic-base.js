@@ -1,6 +1,6 @@
 // Shared plumbing for the vMix browser-input graphics: loads the results
-// snapshot and resolves which athlete/goal to show — from Firebase live
-// state, or from ?bib=&goal= URL params if you'd rather pin it manually.
+// snapshot and resolves which athletes/goal to show — from Firebase live
+// state, or from ?bibs=1,2,3&goal=75 URL params to pin it manually.
 
 import { configured, watchControl } from "./firebase.js";
 
@@ -8,9 +8,21 @@ let results = { slices: {} };
 let pred = null;
 
 const params = new URLSearchParams(location.search);
-const overrideBib = params.get("bib");
-if (overrideBib) {
-  pred = { bib: overrideBib, goalMiles: parseFloat(params.get("goal")) || 50 };
+const override = params.get("bibs") || params.get("bib");
+if (override) {
+  pred = {
+    bibs: override.split(",").map((s) => s.trim()).filter(Boolean),
+    goalMiles: parseFloat(params.get("goal")) || 50,
+  };
+}
+
+// Normalize a prediction value to a bibs array (supports the older
+// single-bib shape too).
+export function predBibs(p) {
+  if (!p) return [];
+  if (Array.isArray(p.bibs)) return p.bibs;
+  if (p.bib != null) return [p.bib];
+  return [];
 }
 
 export function rowByBib(bib) {
@@ -38,7 +50,7 @@ export function startGraphic(renderFn) {
     run();
   }
 
-  if (!overrideBib && configured) {
+  if (!override && configured) {
     watchControl("prediction", (val) => {
       pred = val;
       run();

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WTM 2026 — Commentator Control</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="assets/style.css" />
   <link rel="stylesheet" href="assets/commentator.css" />
 </head>
@@ -55,9 +56,9 @@
     </section>
 
     <section class="panel wide">
-      <h2>Prediction — Map &amp; Chart</h2>
-      <p class="hint">Pick an athlete and a mileage goal. Drives the map and
-        goal-projection graphics (vMix browser inputs).</p>
+      <h2>Prediction — Chart &amp; Map</h2>
+      <p class="hint">Search one athlete, or load a Top 10 group — all of
+        them go on the chart and map. Drives the vMix browser-input graphics.</p>
       <input id="pred-search" type="text" autocomplete="off"
              placeholder="Type a name or bib number…" />
       <div class="row quick-row">
@@ -65,6 +66,7 @@
         <button type="button" data-slice="men" class="ghost">Top 10 Men</button>
         <button type="button" data-slice="women" class="ghost">Top 10 Women</button>
         <button type="button" data-slice="teams" class="ghost">Top 10 Teams</button>
+        <button id="pred-clear" type="button" class="ghost">Clear</button>
       </div>
       <div id="pred-results" class="results"></div>
       <div class="row goal-row">
@@ -75,8 +77,10 @@
         <button type="button" data-goal="100" class="ghost">100</button>
         <button type="button" data-goal="125" class="ghost">125</button>
       </div>
-      <div id="pred-readout" class="live-panel">Pick an athlete to preview the projection.</div>
+      <div id="pred-readout" class="live-panel">Pick an athlete or a Top 10 group.</div>
       <canvas id="pred-chart" class="chart"></canvas>
+      <div id="pred-legend" class="chart-legend"></div>
+      <div id="pred-map" class="map-box"></div>
     </section>
   </main>
 
@@ -84,6 +88,7 @@
     <p>Reads <code>data/results.json</code> every 30s. Selections sync to vMix via Firebase.</p>
   </footer>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="assets/commentator.js"></script>
 </body>
 </html>

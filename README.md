@@ -103,8 +103,11 @@ Add Web Browser inputs pointing at your published pages:
 - `https://<user>.github.io/WTM/graphics/map.html`
 - `https://<user>.github.io/WTM/graphics/chart.html`
 
-They follow the commentator's prediction pick live. To pin one manually
-instead, append `?bib=123&goal=75` to the URL.
+The map is a zoomable Leaflet / OpenStreetMap view of the course; the
+chart projects pace to a mileage goal over a fixed 25.5-hour window.
+Both follow the commentator's prediction live and accept one or many
+athletes. To pin them manually, append `?bibs=123,456&goal=75` (or a
+single `?bib=123`) to the URL.
 
 ## Commentator page
 
@@ -136,7 +139,7 @@ python3 -m http.server 8080
 ```
 
 Preview a graphic with no Firebase:
-`http://localhost:8080/graphics/chart.html?bib=123&goal=75`
+`http://localhost:8080/graphics/chart.html?bibs=123,456&goal=75`
 
 To pull real data locally:
 

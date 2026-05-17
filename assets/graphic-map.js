@@ -1,49 +1,53 @@
-import { LAP_MILES, COURSE, OBSTACLES, TIMING_MATS } from "./course-data.js";
-import { project, advance, drawMap } from "./predict.js";
-import { startGraphic, rowByBib } from "./graphic-base.js";
+import { LAP_MILES } from "./course-data.js";
+import { project, advance, SERIES_COLORS } from "./predict.js";
+import { startGraphic, rowByBib, predBibs } from "./graphic-base.js";
+import { createCourseMap } from "./coursemap.js";
 
-const canvas = document.getElementById("g-canvas");
-const nameEl = document.getElementById("g-name");
-const metaEl = document.getElementById("g-meta");
-const emptyEl = document.getElementById("g-empty");
+const banner = document.getElementById("g-banner");
+const cmap = createCourseMap("map");
 
-// The course always draws. The athlete dot ticks forward from the last
-// feed-accurate projection once per second; a stalled feed is capped.
+// Each athlete's last feed-accurate projection plus its capture time;
+// dots are extrapolated forward once per second and re-sync on each feed.
 const MAX_EXTRAPOLATE_SEC = 600;
-let basis = null;
-let waitLabel = "Waiting for athlete…";
-
-emptyEl.hidden = true;
-canvas.hidden = false;
+let basis = [];
 
 function tick() {
-  let live = null;
-  if (basis) {
-    const secs = Math.min(MAX_EXTRAPOLATE_SEC, (Date.now() - basis.t) / 1000);
-    live = advance(basis.p, secs);
-    metaEl.textContent = `${live.miles.toFixed(1)} mi  •  goal ${basis.p.goalMiles} mi`;
-  } else {
-    metaEl.textContent = waitLabel;
-  }
-  drawMap(canvas, live, COURSE, OBSTACLES, TIMING_MATS);
+  if (basis.length === 0) return;
+  const now = Date.now();
+  cmap.setAthletes(
+    basis.map((b) => {
+      const secs = Math.min(MAX_EXTRAPOLATE_SEC, (now - b.t) / 1000);
+      return { mile: advance(b.p, secs).miles, label: b.bib, color: b.color };
+    }),
+  );
 }
 
 startGraphic((pred) => {
-  if (!pred || pred.bib == null) {
-    basis = null;
-    nameEl.textContent = "";
-    waitLabel = "Waiting for athlete…";
-    return tick();
+  const bibs = predBibs(pred);
+  const goal = (pred && pred.goalMiles) || 50;
+  const t = Date.now();
+  basis = [];
+  bibs.forEach((bib, i) => {
+    const r = rowByBib(bib);
+    if (r) {
+      basis.push({
+        p: project(r, goal, LAP_MILES),
+        t,
+        bib: String(r.Bib),
+        color: SERIES_COLORS[i % SERIES_COLORS.length],
+      });
+    }
+  });
+
+  if (basis.length === 0) {
+    cmap.clearAthletes();
+    banner.textContent = bibs.length
+      ? "Selected athletes not in feed yet"
+      : "Waiting for selection…";
+  } else {
+    banner.textContent =
+      basis.length === 1 ? `#${basis[0].bib}` : `${basis.length} athletes`;
   }
-  const r = rowByBib(pred.bib);
-  if (!r) {
-    basis = null;
-    nameEl.textContent = "";
-    waitLabel = `Bib ${pred.bib} not in feed yet`;
-    return tick();
-  }
-  nameEl.textContent = `#${r.Bib}  ${r.Name}`;
-  basis = { p: project(r, pred.goalMiles, LAP_MILES), t: Date.now() };
   tick();
 });
 

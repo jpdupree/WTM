@@ -1,13 +1,14 @@
 import { configured, writeControl } from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
-import { project, drawChart, secToHms } from "./predict.js";
+import { project, drawChart, chartLegend, secToHms, SERIES_COLORS } from "./predict.js";
+import { createCourseMap } from "./coursemap.js";
 import { VMIX_LINKS } from "./links.js";
 
 const REFRESH_MS = 30_000;
 
 let results = { slices: {} };
 let soloBib = null;
-const pred = { bib: null, goalMiles: 50 };
+const pred = { bibs: [], goalMiles: 50 };
 
 const $ = (id) => document.getElementById(id);
 const overall = () => (results.slices && results.slices.overall) || [];
@@ -105,16 +106,6 @@ function topTen(sliceKey) {
     .slice(0, 10);
 }
 
-function fieldLine(label, value) {
-  const div = document.createElement("div");
-  const span = document.createElement("span");
-  span.className = "muted";
-  span.textContent = label + " ";
-  div.appendChild(span);
-  div.appendChild(document.createTextNode(value));
-  return div;
-}
-
 // --- solo stats ------------------------------------------------------
 const soloSearch = $("solo-search");
 const soloResults = $("solo-results");
@@ -201,29 +192,40 @@ const predResults = $("pred-results");
 const predGoal = $("pred-goal");
 const predReadout = $("pred-readout");
 const predChart = $("pred-chart");
+const predLegend = $("pred-legend");
 
-function pickPrediction(r) {
-  pred.bib = r.Bib;
-  predSearch.value = `#${r.Bib} ${r.Name}`;
-  predResults.innerHTML = "";
-  pushPrediction();
+let cmap = null;
+try {
+  cmap = createCourseMap("pred-map");
+} catch (err) {
+  console.error("Course map failed to load:", err);
 }
 
 predSearch.addEventListener("input", () =>
-  renderSearch(predSearch.value, predResults, pickPrediction),
-);
-
-document.querySelectorAll("[data-slice]").forEach((b) =>
-  b.addEventListener("click", () => {
-    const slice = b.dataset.slice;
-    renderResultRows(
-      topTen(slice),
-      predResults,
-      pickPrediction,
-      `No ${slice} results loaded yet.`,
-    );
+  renderSearch(predSearch.value, predResults, (r) => {
+    pred.bibs = [String(r.Bib)];
+    predSearch.value = "";
+    predResults.innerHTML = "";
+    pushPrediction();
   }),
 );
+
+// A Top 10 button loads all ten onto the chart and map at once.
+document.querySelectorAll("[data-slice]").forEach((b) =>
+  b.addEventListener("click", () => {
+    pred.bibs = topTen(b.dataset.slice).map((r) => String(r.Bib));
+    predSearch.value = "";
+    predResults.innerHTML = "";
+    pushPrediction();
+  }),
+);
+
+$("pred-clear").addEventListener("click", () => {
+  pred.bibs = [];
+  predSearch.value = "";
+  predResults.innerHTML = "";
+  pushPrediction();
+});
 
 predGoal.addEventListener("input", () => {
   pred.goalMiles = parseFloat(predGoal.value) || 0;
@@ -238,32 +240,62 @@ document.querySelectorAll("[data-goal]").forEach((b) =>
   }),
 );
 
+function predEntries() {
+  const entries = [];
+  pred.bibs.forEach((bib, i) => {
+    const r = rowByBib(bib);
+    if (r) {
+      entries.push({
+        p: project(r, pred.goalMiles, LAP_MILES),
+        label: `#${r.Bib} ${r.Name}`,
+        color: SERIES_COLORS[i % SERIES_COLORS.length],
+        bib: String(r.Bib),
+      });
+    }
+  });
+  return entries;
+}
+
 function renderPrediction() {
-  if (pred.bib == null) return;
-  const r = rowByBib(pred.bib);
-  if (!r) {
-    predReadout.textContent = `Bib ${pred.bib} is not in the current feed.`;
+  const entries = predEntries();
+  drawChart(predChart, entries);
+  predLegend.innerHTML = "";
+  predLegend.appendChild(chartLegend(entries));
+  if (cmap) {
+    cmap.setAthletes(
+      entries.map((e) => ({ mile: e.p.miles, label: e.bib, color: e.color })),
+    );
+  }
+
+  predReadout.innerHTML = "";
+  if (entries.length === 0) {
+    predReadout.textContent = pred.bibs.length
+      ? "Selected athletes are not in the current feed."
+      : "Pick an athlete or a Top 10 group.";
     return;
   }
-  const p = project(r, pred.goalMiles, LAP_MILES);
-  predReadout.innerHTML = "";
-  predReadout.append(
-    fieldLine("Athlete", `#${r.Bib} ${r.Name}`),
-    fieldLine("Now", `${p.miles.toFixed(1)} mi • lap ${p.laps} • ${secToHms(p.elapsedSec)}`),
-    fieldLine("Pace", p.pace ? `${secToHms(p.pace)} / mile` : "—"),
-    fieldLine(
-      p.reached ? "Goal" : `Projected ${pred.goalMiles} mi`,
-      p.reached ? "already reached" : secToHms(p.etaSec),
-    ),
-  );
-  drawChart(predChart, p);
+  for (const e of entries) {
+    const line = document.createElement("div");
+    line.className = "pred-line";
+    const sw = document.createElement("span");
+    sw.className = "legend-swatch";
+    sw.style.background = e.color;
+    line.appendChild(sw);
+    line.appendChild(
+      document.createTextNode(
+        `${e.label} — ${e.p.miles.toFixed(1)} mi, ` +
+          (e.p.reached ? "goal reached" : `ETA ${secToHms(e.p.etaSec)}`),
+      ),
+    );
+    predReadout.appendChild(line);
+  }
 }
 
 function pushPrediction() {
   renderPrediction();
-  if (configured && pred.bib != null) {
+  if (configured) {
     writeControl("prediction", {
-      bib: pred.bib,
+      bibs: pred.bibs,
       goalMiles: pred.goalMiles,
       updatedAt: new Date().toISOString(),
     }).catch(() => {});
@@ -280,7 +312,7 @@ async function loadResults() {
     return; // keep previous data on a transient failure
   }
   if (soloBib != null) pushSolo();
-  if (pred.bib != null) renderPrediction();
+  renderPrediction();
 }
 
 window.addEventListener("resize", renderPrediction);
