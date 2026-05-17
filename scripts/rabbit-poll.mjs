@@ -43,14 +43,18 @@ async function getJson(url) {
 async function poll() {
   const auth = `client_id=${clientId}&api_key=${apiKey}`;
   const list = await getJson(`${TUNER}/devices?${auth}`);
+  const devices = list.devices || [];
+  console.log(`${new Date().toLocaleTimeString()} — ${devices.length} device(s) in Tuner`);
   let live = 0;
 
-  for (const d of list.devices || []) {
+  for (const d of devices) {
+    const tag = d.description || d.device_id || d.id;
     const node = `${DB}/rabbits/${d.id}.json`;
 
     // Not sharing location, or offline — drop it from the maps.
     if (!d.geo_granted || d.sync_status === "offline") {
       await fetch(node, { method: "DELETE" });
+      console.log(`  - ${tag}: skipped (sync=${d.sync_status}, geo_granted=${d.geo_granted})`);
       continue;
     }
 
@@ -72,14 +76,16 @@ async function poll() {
             at: new Date().toISOString(),
           }),
         });
+        console.log(`  + ${tag}: ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`);
         live++;
+      } else {
+        console.log(`  - ${tag}: no location (status=${loc.status})`);
       }
     } catch (err) {
-      // Transient miss — leave the last position; staleness handles it.
-      console.warn(`  location ${d.id}: ${err.message}`);
+      console.warn(`  - ${tag}: location error — ${err.message}`);
     }
   }
-  console.log(`${new Date().toLocaleTimeString()} — ${live} camera(s) updated`);
+  console.log(`  -> ${live} camera(s) on the map`);
 }
 
 async function loop() {
