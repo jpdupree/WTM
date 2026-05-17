@@ -38,10 +38,12 @@ const LAP_FIELDS = [
   "TwentythirdLap", "TwentyfourthLap", "TwentyfifthLap",
 ];
 
-// Pit time for a given lap. The feed does not yet carry pit times
-// separately — wire the feed's pit field here once it does.
+// Pit time for a given lap (0-based index) — the feed's Pit1..Pit25
+// fields. "-" or "" mean no pit was recorded for that lap.
 function pitOf(row, lapIndex) {
-  return null;
+  const v = row["Pit" + (lapIndex + 1)];
+  if (v == null || v === "" || v === "-") return null;
+  return String(v);
 }
 
 // Lap-by-lap detail panel shown when an athlete row is expanded.
