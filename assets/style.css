@@ -167,6 +167,30 @@ th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 th.sortable:hover { color: var(--text); }
 th .arrow { color: var(--accent); }
 
+tr.expandable { cursor: pointer; }
+tr.open td { background: var(--panel-2); }
+.detail-row td { padding: 0; }
+.lap-detail {
+  background: var(--panel-2);
+  padding: 12px 16px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.lap-grid {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 3px 26px;
+  width: max-content;
+}
+.lap-grid > div { color: var(--text); }
+.lap-grid .lap-head {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 1px;
+}
+.lap-grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+
 footer { padding: 20px 24px; color: var(--muted); font-size: 0.8rem; text-align: center; }
 
 @media (max-width: 600px) {

@@ -19,11 +19,96 @@ let state = {
   sort: { key: "Rank", dir: 1 },
   fGender: "all",
   fAgeGroup: "all",
+  expanded: new Set(),
 };
 
 function num(v) {
   const n = parseFloat(String(v ?? "").replace(/[^\d.]/g, ""));
   return Number.isFinite(n) ? n : Infinity;
+}
+
+// Per-lap duration fields, in order. Lap 21 is "Twentyfirstlap"
+// (lower-case L) — that is the actual feed key.
+const LAP_FIELDS = [
+  "FirstLap", "SecondLap", "ThirdLap", "FourthLap", "FifthLap",
+  "SixthLap", "SeventhLap", "EighthLap", "NinthLap", "TenthLap",
+  "EleventhLap", "TwelfthLap", "ThirteenthLap", "FourteenthLap",
+  "FifteenthLap", "SixteenthLap", "SeventeenthLap", "EighteenthLap",
+  "NineteenthLap", "TwentiethLap", "Twentyfirstlap", "TwentysecondLap",
+  "TwentythirdLap", "TwentyfourthLap", "TwentyfifthLap",
+];
+
+// Pit time for a given lap. The feed does not yet carry pit times
+// separately — wire the feed's pit field here once it does.
+function pitOf(row, lapIndex) {
+  return null;
+}
+
+// Lap-by-lap detail panel shown when an athlete row is expanded.
+function lapDetail(row) {
+  const wrap = document.createElement("div");
+  wrap.className = "lap-detail";
+
+  const laps = [];
+  for (let i = 0; i < LAP_FIELDS.length; i++) {
+    const t = row[LAP_FIELDS[i]];
+    if (t == null || t === "") break;
+    laps.push({ n: i + 1, time: String(t), pit: pitOf(row, i) });
+  }
+  if (laps.length === 0) {
+    wrap.textContent = "No lap data for this athlete.";
+    return wrap;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "lap-grid";
+  for (const label of ["Lap", "Lap Time", "Pit Time"]) {
+    const h = document.createElement("div");
+    h.className = "lap-head";
+    h.textContent = label;
+    grid.appendChild(h);
+  }
+  for (const lap of laps) {
+    const cells = [String(lap.n), lap.time, lap.pit == null ? "—" : String(lap.pit)];
+    cells.forEach((v, i) => {
+      const d = document.createElement("div");
+      if (i) d.className = "num";
+      d.textContent = v;
+      grid.appendChild(d);
+    });
+  }
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+function addDetailRow(tr, row, colCount) {
+  const detail = document.createElement("tr");
+  detail.className = "detail-row";
+  const td = document.createElement("td");
+  td.colSpan = colCount;
+  td.appendChild(lapDetail(row));
+  detail.appendChild(td);
+  tr.after(detail);
+  tr.classList.add("open");
+}
+
+// Make an athlete row tap-to-expand its lap/pit breakdown. Expansion is
+// tracked by bib in state.expanded so it survives the 30s re-render.
+function makeExpandable(tr, row, colCount) {
+  const bib = String(row.Bib);
+  tr.classList.add("expandable");
+  tr.addEventListener("click", () => {
+    if (state.expanded.has(bib)) {
+      state.expanded.delete(bib);
+      const next = tr.nextElementSibling;
+      if (next && next.classList.contains("detail-row")) next.remove();
+      tr.classList.remove("open");
+    } else {
+      state.expanded.add(bib);
+      addDetailRow(tr, row, colCount);
+    }
+  });
+  if (state.expanded.has(bib)) addDetailRow(tr, row, colCount);
 }
 
 function topN(rows, rankField) {
@@ -71,6 +156,7 @@ function buildTable(rows) {
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
+    makeExpandable(tr, row, cols.length);
   });
   table.appendChild(tbody);
   return table;
@@ -318,6 +404,7 @@ function buildSortableTable(rows) {
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
+    makeExpandable(tr, row, OVERALL_COLS.length);
   }
   table.appendChild(tbody);
   return table;
