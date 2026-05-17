@@ -1,18 +1,12 @@
-// Fetches the four RaceResult feeds and writes data/results.json.
-// Feed URLs come from Actions secrets, so they never touch the repo.
-// A slice that fails to fetch keeps its previous data so a transient
-// API hiccup during the live event does not blank the dashboard.
+// Fetches the enriched RaceResult feed (the OCRReportall report for
+// everyone) and writes data/results.json. The men/women/teams slices
+// are derived from it. If the fetch fails, the previous file is left
+// untouched so a transient API hiccup won't blank the dashboard.
 
 import { readFile, writeFile } from "node:fs/promises";
 
 const OUT = new URL("../data/results.json", import.meta.url);
-
-const SLICES = [
-  { key: "overall", env: "RACE_FEED_OVERALL" },
-  { key: "men", env: "RACE_FEED_MEN" },
-  { key: "women", env: "RACE_FEED_WOMEN" },
-  { key: "teams", env: "RACE_FEED_TEAMS" },
-];
+const FEED_URL = process.env.RACE_FEED_OVERALL;
 
 async function readPrevious() {
   try {
@@ -22,7 +16,7 @@ async function readPrevious() {
   }
 }
 
-async function fetchSlice(url) {
+async function fetchFeed(url) {
   const res = await fetch(url, { headers: { "cache-control": "no-cache" } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
@@ -30,29 +24,52 @@ async function fetchSlice(url) {
   return data;
 }
 
+const byRank = (a, b) => (parseFloat(a.Rank) || 1e9) - (parseFloat(b.Rank) || 1e9);
+
+// A gender/category subset, re-ranked 1..N (overall rank kept as Overall).
+function subset(rows, predicate) {
+  return rows
+    .filter(predicate)
+    .sort(byRank)
+    .map((r, i) => ({ ...r, Overall: r.Rank, Rank: i + 1 }));
+}
+
+if (!FEED_URL) {
+  console.error("RACE_FEED_OVERALL secret is not set.");
+  process.exit(1);
+}
+
+let overall;
+try {
+  overall = (await fetchFeed(FEED_URL)).sort(byRank);
+  console.log(`fetched ${overall.length} rows`);
+} catch (err) {
+  console.error(`fetch failed: ${err.message} — keeping previous data.`);
+  process.exit(0);
+}
+
+if (!overall.some((r) => r.AgeGroupCategory)) {
+  console.warn("feed has no AgeGroupCategory — age-group features will be inert.");
+}
+
+const sex = (r) => String(r.Sex).toLowerCase();
+const slices = {
+  overall,
+  men: subset(overall, (r) => r.Category === "Individual" && sex(r) === "m"),
+  women: subset(overall, (r) => r.Category === "Individual" && sex(r) === "f"),
+  teams: subset(overall, (r) => r.Category === "Team"),
+};
+
+// Skip the write when nothing changed, so an unchanging feed (e.g. an
+// archived event) doesn't churn out a commit every run.
 const previous = await readPrevious();
-const slices = { ...previous.slices };
-let anySuccess = false;
-
-for (const { key, env } of SLICES) {
-  const url = process.env[env];
-  if (!url) {
-    console.warn(`skip ${key}: secret ${env} not set`);
-    continue;
-  }
-  try {
-    slices[key] = await fetchSlice(url);
-    anySuccess = true;
-    console.log(`ok ${key}: ${slices[key].length} rows`);
-  } catch (err) {
-    console.error(`fail ${key}: ${err.message} (keeping previous data)`);
-  }
+if (JSON.stringify(previous.slices) === JSON.stringify(slices)) {
+  console.log("no change since last fetch — leaving results.json as is.");
+  process.exit(0);
 }
 
-if (!anySuccess && !previous.updatedAt) {
-  console.error("no feeds fetched and no previous data; writing empty file");
-}
-
-const out = { updatedAt: new Date().toISOString(), slices };
-await writeFile(OUT, JSON.stringify(out) + "\n");
+await writeFile(
+  OUT,
+  JSON.stringify({ updatedAt: new Date().toISOString(), slices }) + "\n",
+);
 console.log(`wrote ${OUT.pathname}`);

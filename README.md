@@ -54,25 +54,24 @@ The site publishes at `https://<user>.github.io/WTM/`.
 > sensitive is exposed: API keys live only in Actions secrets, and the
 > committed JSON is just public race results.
 
-### 2. Add the feed URLs as Actions secrets
+### 2. Add the feed URL as an Actions secret
 
 Settings → Secrets and variables → Actions → **New repository secret**.
-Add each with the matching RaceResult API URL as the value:
+Add one secret:
 
-`RACE_FEED_OVERALL`, `RACE_FEED_MEN`, `RACE_FEED_WOMEN`, `RACE_FEED_TEAMS`
+`RACE_FEED_OVERALL` — the RaceResult API URL for the enriched
+`OCRReportall` report (every athlete). The men/women/teams slices are
+derived from it, so no other feed secrets are needed.
 
-A slice whose secret is missing is simply skipped.
+The feed must return the enriched fields — `Sex` (`m`/`f`),
+`AgeGroupCategory` (e.g. `Male 50-54`), and the per-lap split times
+`FirstLap`…`TwentyfifthLap` — or the age-group, gender, and lap-dot
+features stay inert.
 
 Then: Actions tab → **Fetch WTM results** → **Run workflow** to populate
-`data/results.json`.
-
-> **Auto-fetch is currently paused.** The dashboard runs on committed
-> 2025 sample data (`data/sample-results-2025.json`, built into
-> `data/results.json`) while the feed format is validated for 2026. For
-> race weekend, the live feed must return the enriched report — fields
-> `Sex` (`m`/`f`), `AgeGroupCategory` (e.g. `Male 50-54`), and the
-> per-lap split times `FirstLap`…`TwentyfifthLap` (the chart's lap
-> dots) — then uncomment the `schedule:` block in `fetch-results.yml`.
+`data/results.json`; after that it runs every 10 minutes. For the 2026
+race, just update `RACE_FEED_OVERALL` to the 2026 event's URL — no code
+change. `data/sample-results-2025.json` is kept as an offline fixture.
 
 ### 3. Set up Firebase (live control state)
 

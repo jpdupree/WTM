@@ -2,12 +2,10 @@ name: Fetch WTM results
 
 on:
   workflow_dispatch:
-  # Auto-fetch is PAUSED. The dashboard is running on the committed 2025
-  # sample data (data/results.json) while the feed format is validated
-  # for the live event. Re-enable this schedule for race weekend, once
-  # the feed returns the enriched report (Sex + AgeGroupCategory).
-  # schedule:
-  #   - cron: "*/10 * * * *"
+  schedule:
+    # Every 10 minutes. Tighten the cron for race weekend (GitHub's
+    # minimum interval is 5 minutes).
+    - cron: "*/10 * * * *"
 
 # Avoid overlapping runs racing each other's commits.
 concurrency:
@@ -27,12 +25,9 @@ jobs:
         with:
           node-version: "lts/*"
 
-      - name: Fetch feeds
+      - name: Fetch feed
         env:
           RACE_FEED_OVERALL: ${{ secrets.RACE_FEED_OVERALL }}
-          RACE_FEED_MEN: ${{ secrets.RACE_FEED_MEN }}
-          RACE_FEED_WOMEN: ${{ secrets.RACE_FEED_WOMEN }}
-          RACE_FEED_TEAMS: ${{ secrets.RACE_FEED_TEAMS }}
         run: node scripts/fetch-results.mjs
 
       - name: Commit updated results
