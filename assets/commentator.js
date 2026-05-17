@@ -211,8 +211,25 @@ function setSelection(bibs) {
 }
 
 predSearch.addEventListener("input", () =>
-  renderSearch(predSearch.value, predResults, (r) => setSelection([String(r.Bib)])),
+  renderSearch(predSearch.value, predResults, (r) => addToSelection(String(r.Bib))),
 );
+
+// Searching and clicking a person adds them to the current list.
+function addToSelection(bib) {
+  const b = String(bib);
+  if (!pred.bibs.includes(b)) pred.bibs.push(b);
+  predSearch.value = "";
+  predResults.innerHTML = "";
+  pushPrediction();
+}
+
+// Remove one athlete (the X on their row) from the list and any focus.
+function removeFromSelection(bib) {
+  const b = String(bib);
+  pred.bibs = pred.bibs.filter((x) => x !== b);
+  pred.focus = pred.focus.filter((x) => x !== b);
+  pushPrediction();
+}
 
 // A Top 10 button loads all ten onto the chart and map at once.
 document.querySelectorAll("[data-slice]").forEach((b) =>
@@ -285,22 +302,33 @@ function renderPrediction() {
   }
   const focusActive = pred.focus.length > 0;
   for (const e of entries) {
-    const line = document.createElement("button");
-    line.type = "button";
+    const line = document.createElement("div");
     line.className =
-      "pred-line" +
-      (e.dim ? " dimmed" : focusActive ? " focused" : "");
+      "pred-line" + (e.dim ? " dimmed" : focusActive ? " focused" : "");
+
+    const main = document.createElement("div");
+    main.className = "pred-line-main";
+    main.title = "Tap to focus";
     const sw = document.createElement("span");
     sw.className = "legend-swatch";
     sw.style.background = e.color;
-    line.appendChild(sw);
-    line.appendChild(
+    main.appendChild(sw);
+    main.appendChild(
       document.createTextNode(
         `${e.label} — ${e.p.miles.toFixed(1)} mi, ` +
           (e.p.reached ? "goal reached" : `ETA ${secToHms(e.p.etaSec)}`),
       ),
     );
-    line.addEventListener("click", () => toggleFocus(e.bib));
+    main.addEventListener("click", () => toggleFocus(e.bib));
+
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "pred-x";
+    x.textContent = "×";
+    x.title = "Remove";
+    x.addEventListener("click", () => removeFromSelection(e.bib));
+
+    line.append(main, x);
     predReadout.appendChild(line);
   }
 }
