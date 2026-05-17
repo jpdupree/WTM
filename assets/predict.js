@@ -228,16 +228,17 @@ export function drawMap(canvas, p, course, obstacles, mats) {
   ctx.fillStyle = COL.goal;
   ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.fill();
 
-  // athlete dot
-  const lapFrac = ((p.miles % p.lapMiles) + p.lapMiles) % p.lapMiles;
-  const [ax, ay] = S(pointAtMile(course, lapFrac));
-  ctx.beginPath(); ctx.arc(ax, ay, 10, 0, Math.PI * 2);
-  ctx.fillStyle = COL.projection; ctx.fill();
-  ctx.strokeStyle = "#1a1207"; ctx.lineWidth = 2.5; ctx.stroke();
+  // athlete dot + lap badge (only when an athlete is resolved)
+  if (p) {
+    const lapFrac = ((p.miles % p.lapMiles) + p.lapMiles) % p.lapMiles;
+    const [ax, ay] = S(pointAtMile(course, lapFrac));
+    ctx.beginPath(); ctx.arc(ax, ay, 10, 0, Math.PI * 2);
+    ctx.fillStyle = COL.projection; ctx.fill();
+    ctx.strokeStyle = "#1a1207"; ctx.lineWidth = 2.5; ctx.stroke();
 
-  // lap badge
-  ctx.textAlign = "left";
-  ctx.fillStyle = COL.text;
-  ctx.font = "bold 16px Segoe UI, sans-serif";
-  ctx.fillText(`Lap ${p.laps + 1}  •  ${p.miles.toFixed(2)} mi`, 16, h - 16);
+    ctx.textAlign = "left";
+    ctx.fillStyle = COL.text;
+    ctx.font = "bold 16px Segoe UI, sans-serif";
+    ctx.fillText(`Lap ${p.laps + 1}  •  ${p.miles.toFixed(2)} mi`, 16, h - 16);
+  }
 }

@@ -1,34 +1,50 @@
-// Thin wrapper over Firebase Realtime Database. All shared broadcast
-// state lives under /control. Pages stay usable when Firebase is not
-// configured yet — `configured` is false and the helpers no-op.
+// Firebase Realtime Database wrapper. The SDK is loaded lazily via
+// dynamic import so a CDN failure (or an unconfigured project) degrades
+// to "no live sync" instead of blanking the page that imports this.
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getDatabase, ref, set, onValue, get,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 export const configured = Boolean(firebaseConfig.databaseURL);
 
-let db = null;
-if (configured) {
-  db = getDatabase(initializeApp(firebaseConfig));
+const SDK = "https://www.gstatic.com/firebasejs/10.12.0";
+let ready = null;
+
+function load() {
+  if (!configured) return Promise.resolve(null);
+  if (!ready) {
+    ready = (async () => {
+      const appMod = await import(`${SDK}/firebase-app.js`);
+      const dbMod = await import(`${SDK}/firebase-database.js`);
+      const app = appMod.initializeApp(firebaseConfig);
+      return {
+        db: dbMod.getDatabase(app),
+        ref: dbMod.ref,
+        set: dbMod.set,
+        onValue: dbMod.onValue,
+        get: dbMod.get,
+      };
+    })().catch((err) => {
+      console.error("Firebase failed to load:", err);
+      return null;
+    });
+  }
+  return ready;
 }
 
-// Write a value under control/<path>.
-export function writeControl(path, value) {
-  if (!db) return Promise.reject(new Error("Firebase not configured"));
-  return set(ref(db, "control/" + path), value);
+export async function writeControl(path, value) {
+  const f = await load();
+  if (!f) return;
+  return f.set(f.ref(f.db, "control/" + path), value);
 }
 
-// Subscribe to control/<path>; cb fires immediately and on every change.
-export function watchControl(path, cb) {
-  if (!db) return () => {};
-  return onValue(ref(db, "control/" + path), (snap) => cb(snap.val()));
+export async function watchControl(path, cb) {
+  const f = await load();
+  if (!f) return;
+  f.onValue(f.ref(f.db, "control/" + path), (snap) => cb(snap.val()));
 }
 
-// One-off read of control/<path>.
 export async function readControl(path) {
-  if (!db) return null;
-  return (await get(ref(db, "control/" + path))).val();
+  const f = await load();
+  if (!f) return null;
+  return (await f.get(f.ref(f.db, "control/" + path))).val();
 }
