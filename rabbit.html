@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WTM Rabbit — Camera GPS</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <link rel="stylesheet" href="assets/rabbit.css" />
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>Rabbit GPS</h1>
+      <p class="sub">World's Toughest Mudder 2026</p>
+    </div>
+  </header>
+
+  <main class="rabbit-main">
+    <p class="hint">Camera operators: choose your camera, then start
+      sharing your phone's location so it shows on the course map. Keep
+      this page open while you're out — sharing stops when you close it.</p>
+
+    <label class="field">
+      <span>Your camera</span>
+      <select id="slot"></select>
+    </label>
+
+    <div class="row">
+      <button id="start" type="button">Start sharing location</button>
+      <button id="stop" type="button" class="ghost" hidden>Stop sharing</button>
+    </div>
+
+    <div id="status" class="status-box">Not sharing.</div>
+  </main>
+
+  <script type="module" src="assets/rabbit.js"></script>
+</body>
+</html>

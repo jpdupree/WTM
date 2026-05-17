@@ -76,9 +76,28 @@ export function createCourseMap(elId) {
     athletes.clearLayers();
   }
 
+  const rabbits = L.layerGroup().addTo(map);
+
+  // entries: [{ name, lat, lng }] — camera operators at real GPS coords.
+  function setRabbits(entries) {
+    rabbits.clearLayers();
+    for (const r of entries || []) {
+      if (typeof r.lat !== "number" || typeof r.lng !== "number") continue;
+      L.marker([r.lat, r.lng], {
+        zIndexOffset: 1000,
+        icon: L.divIcon({
+          className: "rabbit-marker",
+          html: r.name || "Cam",
+          iconSize: [56, 22],
+          iconAnchor: [28, 11],
+        }),
+      }).addTo(rabbits);
+    }
+  }
+
   const refresh = () => map.invalidateSize();
   window.addEventListener("resize", refresh);
   setTimeout(refresh, 200);
 
-  return { map, setAthletes, clearAthletes };
+  return { map, setAthletes, clearAthletes, setRabbits };
 }

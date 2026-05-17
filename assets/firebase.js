@@ -22,6 +22,7 @@ function load() {
         set: dbMod.set,
         onValue: dbMod.onValue,
         get: dbMod.get,
+        onDisconnect: dbMod.onDisconnect,
       };
     })().catch((err) => {
       console.error("Firebase failed to load:", err);
@@ -47,4 +48,34 @@ export async function readControl(path) {
   const f = await load();
   if (!f) return null;
   return (await f.get(f.ref(f.db, "control/" + path))).val();
+}
+
+// --- rabbit (camera-operator) GPS ------------------------------------
+
+// Subscribe to all rabbit positions; cb receives an object keyed by id.
+export async function watchRabbits(cb) {
+  const f = await load();
+  if (!f) return;
+  f.onValue(f.ref(f.db, "rabbits"), (snap) => cb(snap.val() || {}));
+}
+
+const onDisconnectArmed = new Set();
+
+// Publish this device's position to rabbits/<id>, auto-removing the
+// entry when the page disconnects so stale rabbits drop off the map.
+export async function publishRabbit(id, value) {
+  const f = await load();
+  if (!f) return;
+  const r = f.ref(f.db, "rabbits/" + id);
+  if (!onDisconnectArmed.has(id)) {
+    f.onDisconnect(r).remove();
+    onDisconnectArmed.add(id);
+  }
+  return f.set(r, value);
+}
+
+export async function clearRabbit(id) {
+  const f = await load();
+  if (!f) return;
+  return f.set(f.ref(f.db, "rabbits/" + id), null);
 }

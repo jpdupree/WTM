@@ -1,9 +1,11 @@
 import { LAP_MILES } from "./course-data.js";
 import { project, advance, markDim, SERIES_COLORS } from "./predict.js";
 import { startGraphic, rowByBib, predBibs, predFocus } from "./graphic-base.js";
+import { watchRabbits } from "./firebase.js";
 import { createCourseMap } from "./coursemap.js";
 
 const banner = document.getElementById("g-banner");
+const rabbitsBtn = document.getElementById("g-rabbits");
 const cmap = createCourseMap("map");
 
 // Each athlete's last feed-accurate projection plus its capture time;
@@ -54,3 +56,27 @@ startGraphic((pred) => {
 });
 
 setInterval(tick, 1000);
+
+// --- rabbits (camera-operator GPS) -----------------------------------
+let showRabbits = new URLSearchParams(location.search).get("rabbits") === "1";
+let rabbits = [];
+
+function drawRabbits() {
+  cmap.setRabbits(showRabbits ? rabbits : []);
+  rabbitsBtn.classList.toggle("on", showRabbits);
+  rabbitsBtn.textContent = `Rabbits${rabbits.length ? ` (${rabbits.length})` : ""}`;
+}
+
+rabbitsBtn.addEventListener("click", () => {
+  showRabbits = !showRabbits;
+  drawRabbits();
+});
+
+watchRabbits((obj) => {
+  rabbits = Object.values(obj || {}).filter(
+    (r) => r && typeof r.lat === "number" && typeof r.lng === "number",
+  );
+  drawRabbits();
+});
+
+drawRabbits();
