@@ -1,5 +1,5 @@
 import { configured, publishRabbit, clearRabbit, watchRabbits } from "./firebase.js";
-import { RABBIT_SLOTS } from "./rabbits.js";
+import { RABBIT_SLOTS, rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
 import { SERIES_COLORS } from "./predict.js";
 import { LAP_MILES } from "./course-data.js";
@@ -30,6 +30,33 @@ if (!configured) {
 
 let watchId = null;
 let activeSlot = null;
+
+// Keeps the screen awake while sharing so a dedicated tracker phone on
+// this page doesn't sleep. It does NOT keep GPS running when you switch
+// to another app — that is a browser limitation.
+let wakeLock = null;
+
+async function requestWakeLock() {
+  try {
+    if ("wakeLock" in navigator) {
+      wakeLock = await navigator.wakeLock.request("screen");
+    }
+  } catch {
+    /* wake lock unavailable — ignore */
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
+}
+
+// The lock is dropped when the page is hidden; re-acquire on return.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && watchId != null) requestWakeLock();
+});
 
 function setSharing(on) {
   startBtn.hidden = on;
@@ -72,11 +99,13 @@ startBtn.addEventListener("click", () => {
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
   );
   setSharing(true);
+  requestWakeLock();
 });
 
 stopBtn.addEventListener("click", () => {
   if (watchId != null) navigator.geolocation.clearWatch(watchId);
   watchId = null;
+  releaseWakeLock();
   if (activeSlot != null) clearRabbit(activeSlot);
   statusEl.className = "status-box";
   statusEl.textContent = "Stopped sharing.";
@@ -208,10 +237,7 @@ $("ath-clear").addEventListener("click", () => {
 
 // Camera positions always show on the rabbit map.
 watchRabbits((obj) => {
-  const list = Object.values(obj || {}).filter(
-    (r) => r && typeof r.lat === "number" && typeof r.lng === "number",
-  );
-  if (cmap) cmap.setRabbits(list);
+  if (cmap) cmap.setRabbits(rabbitList(obj));
 });
 
 async function loadResults() {

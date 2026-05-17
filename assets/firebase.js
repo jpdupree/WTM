@@ -22,7 +22,6 @@ function load() {
         set: dbMod.set,
         onValue: dbMod.onValue,
         get: dbMod.get,
-        onDisconnect: dbMod.onDisconnect,
       };
     })().catch((err) => {
       console.error("Firebase failed to load:", err);
@@ -59,19 +58,14 @@ export async function watchRabbits(cb) {
   f.onValue(f.ref(f.db, "rabbits"), (snap) => cb(snap.val() || {}));
 }
 
-const onDisconnectArmed = new Set();
-
-// Publish this device's position to rabbits/<id>, auto-removing the
-// entry when the page disconnects so stale rabbits drop off the map.
+// Publish this device's position to rabbits/<id>. The entry is NOT
+// auto-removed on disconnect — a backgrounded phone keeps its last
+// position on the map, and the maps drop rabbits once their fix is
+// stale (see rabbitList in rabbits.js).
 export async function publishRabbit(id, value) {
   const f = await load();
   if (!f) return;
-  const r = f.ref(f.db, "rabbits/" + id);
-  if (!onDisconnectArmed.has(id)) {
-    f.onDisconnect(r).remove();
-    onDisconnectArmed.add(id);
-  }
-  return f.set(r, value);
+  return f.set(f.ref(f.db, "rabbits/" + id), value);
 }
 
 export async function clearRabbit(id) {

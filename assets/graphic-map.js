@@ -2,6 +2,7 @@ import { LAP_MILES } from "./course-data.js";
 import { project, advance, markDim, SERIES_COLORS } from "./predict.js";
 import { startGraphic, rowByBib, predBibs, predFocus } from "./graphic-base.js";
 import { watchRabbits } from "./firebase.js";
+import { rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
 
 const banner = document.getElementById("g-banner");
@@ -73,9 +74,7 @@ rabbitsBtn.addEventListener("click", () => {
 });
 
 watchRabbits((obj) => {
-  rabbits = Object.values(obj || {}).filter(
-    (r) => r && typeof r.lat === "number" && typeof r.lng === "number",
-  );
+  rabbits = rabbitList(obj);
   drawRabbits();
 });
 

@@ -2,6 +2,7 @@ import { configured, writeControl, watchRabbits } from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
 import { project, drawChart, chartLegend, markDim, secToHms, SERIES_COLORS } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
+import { rabbitList } from "./rabbits.js";
 import { VMIX_LINKS } from "./links.js";
 
 const REFRESH_MS = 30_000;
@@ -221,9 +222,7 @@ rabbitsBtn.addEventListener("click", () => {
 });
 
 watchRabbits((obj) => {
-  rabbits = Object.values(obj || {}).filter(
-    (r) => r && typeof r.lat === "number" && typeof r.lng === "number",
-  );
+  rabbits = rabbitList(obj);
   drawRabbits();
 });
 
