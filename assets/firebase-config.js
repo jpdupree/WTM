@@ -1,16 +1,16 @@
-// Firebase web config — paste the values from your Firebase project:
-// Project settings -> General -> Your apps -> Web app -> SDK setup.
+// Firebase web config for the WTM broadcast project.
 //
 // These values are NOT secret. Firebase web config is meant to ship in
 // client code; access is controlled by Realtime Database rules, not by
 // keeping these hidden. Safe to commit, even in a public repo.
-//
-// Leave databaseURL empty to run the pages in preview mode (no live sync).
 
 export const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  databaseURL: "",
-  projectId: "",
-  appId: "",
+  apiKey: "AIzaSyC4_W94osZW6htfX6xmRFnJarJ2S4oFUWA",
+  authDomain: "wtm-broadcast.firebaseapp.com",
+  databaseURL: "https://wtm-broadcast-default-rtdb.firebaseio.com",
+  projectId: "wtm-broadcast",
+  storageBucket: "wtm-broadcast.firebasestorage.app",
+  messagingSenderId: "651010088596",
+  appId: "1:651010088596:web:390fe3111971d8bb599e81",
+  measurementId: "G-19LHQ547SK",
 };
