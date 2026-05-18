@@ -83,7 +83,11 @@ async function poll() {
         console.log(`  + ${tag}: ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`);
         live++;
       } else {
-        console.log(`  - ${tag}: no location (status=${loc.status})`);
+        console.log(
+          `  - ${tag}: no location — remote_control=${d.remote_control}, ` +
+            `active_session=${d.has_active_sessions}, ` +
+            `response=${JSON.stringify(loc)}`,
+        );
       }
     } catch (err) {
       console.warn(`  - ${tag}: location error — ${err.message}`);
