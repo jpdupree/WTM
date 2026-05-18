@@ -30,6 +30,7 @@ This list grows — more items will be added as they come up.
 
 - [ ] Start **SRTMiniServer**
 - [ ] Start **vMix Social**
+- [ ] Start the **Show Start Timer** script in vMix
 
 ## 1. Results feed
 
