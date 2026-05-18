@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WTM — Social Wall Curation</title>
+  <title>WTM — Social Wall Control</title>
   <link rel="stylesheet" href="assets/style.css" />
   <link rel="stylesheet" href="assets/social-admin.css" />
 </head>
 <body>
   <header>
     <div class="title">
-      <h1>Social Wall — Curation</h1>
+      <h1>Social Wall — Control</h1>
       <p class="sub">World's Toughest Mudder 2026</p>
     </div>
     <div class="status">
@@ -22,18 +22,18 @@
 
   <main class="social-main">
     <p class="hint">Find a good post on Instagram (search #wtm2026 in the
-      app), copy its link, and paste it here. Only posts you add appear
-      on the wall — remove any with the ×.</p>
+      app), copy its link, and paste it below to add it. Then click
+      <strong>Show on wall</strong> on any post to put it on air.</p>
 
     <div class="add-row">
       <input id="url" type="text" autocomplete="off"
              placeholder="Paste an Instagram post or reel link…" />
-      <button id="add" type="button">Add to wall</button>
+      <button id="add" type="button">Add</button>
     </div>
     <div id="status" class="msg"></div>
 
-    <div class="live-head"><span>On the wall</span></div>
-    <div id="list" class="post-list"></div>
+    <div class="live-head"><span>Curated posts — click one to show it</span></div>
+    <div id="grid" class="post-grid"></div>
   </main>
 
   <script type="module" src="assets/social-admin.js"></script>

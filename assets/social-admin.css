@@ -5,7 +5,7 @@
 .banner.ok { background: #173524; color: #6fe0a0; }
 .banner.warn { background: #3a2e12; color: var(--accent); }
 
-.social-main { max-width: 620px; margin: 0 auto; padding: 24px 22px; }
+.social-main { max-width: 1000px; margin: 0 auto; padding: 24px 22px; }
 .hint { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
 
 .add-row { display: flex; gap: 8px; }
@@ -33,26 +33,42 @@
   color: var(--muted);
 }
 
-.post-list { margin-top: 8px; }
-.post-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 6px;
-  border-top: 1px solid var(--line);
+.post-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 10px;
 }
-.post-link { flex: 1; color: var(--accent-2); text-decoration: none; font-size: 0.9rem; }
-.post-link:hover { text-decoration: underline; }
-.empty-note { color: var(--muted); font-size: 0.85rem; padding: 8px 6px; }
+.empty-note { color: var(--muted); font-size: 0.85rem; padding: 8px 4px; }
+
+.post-card {
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.post-card.active { border-color: #46d17f; }
+
+.preview { width: 100%; height: 340px; border: none; display: block; background: #fff; }
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  align-items: center;
+}
+.show-btn { flex: 1; font-size: 0.85rem; }
+.show-btn.on { background: #46d17f; color: #04220f; }
 
 .x-btn {
   flex-shrink: 0;
   background: transparent;
-  border: none;
+  border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   line-height: 1;
-  padding: 2px 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
   cursor: pointer;
 }
-.x-btn:hover { color: #ff7a7a; filter: none; }
+.x-btn:hover { color: #ff7a7a; border-color: #ff7a7a; filter: none; }

@@ -1,17 +1,24 @@
-import { configured, watchSocial, setSocialPost, removeSocialPost } from "./firebase.js";
+import {
+  configured,
+  watchSocial,
+  setSocialPost,
+  removeSocialPost,
+  watchControl,
+  writeControl,
+} from "./firebase.js";
 
 const $ = (id) => document.getElementById(id);
 const urlInput = $("url");
 const statusEl = $("status");
-const list = $("list");
+const grid = $("grid");
 
 const banner = $("fb-banner");
 if (configured) {
-  banner.textContent = "Live — posts you add appear on the wall.";
+  banner.textContent = "Live — the post you Show goes to the wall.";
   banner.className = "banner ok";
 } else {
   banner.textContent =
-    "Preview mode — Firebase not configured (see README). Posts won't sync.";
+    "Preview mode — Firebase not configured (see README). Nothing will sync.";
   banner.className = "banner warn";
 }
 
@@ -39,37 +46,67 @@ $("add").addEventListener("click", () => {
     addedAt: new Date().toISOString(),
   });
   urlInput.value = "";
-  setStatus("Added to the wall.", "ok");
+  setStatus("Added.", "ok");
 });
 
-watchSocial((obj) => {
-  const posts = Object.values(obj || {}).sort((a, b) =>
-    String(a.addedAt).localeCompare(String(b.addedAt)),
-  );
-  list.innerHTML = "";
+let posts = [];
+let activeCode = null;
+
+function render() {
+  grid.innerHTML = "";
   if (posts.length === 0) {
     const note = document.createElement("div");
     note.className = "empty-note";
-    note.textContent = "No posts on the wall yet.";
-    list.appendChild(note);
+    note.textContent = "No posts added yet.";
+    grid.appendChild(note);
     return;
   }
   for (const p of posts) {
-    const row = document.createElement("div");
-    row.className = "post-row";
-    const link = document.createElement("a");
-    link.className = "post-link";
-    link.href = p.url;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.textContent = `${p.type} / ${p.code}`;
+    const isActive = p.code === activeCode;
+    const card = document.createElement("div");
+    card.className = "post-card" + (isActive ? " active" : "");
+
+    const frame = document.createElement("iframe");
+    frame.className = "preview";
+    frame.src = `https://www.instagram.com/${p.type}/${p.code}/embed`;
+    frame.setAttribute("scrolling", "no");
+    frame.loading = "lazy";
+
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+
+    const showBtn = document.createElement("button");
+    showBtn.type = "button";
+    showBtn.className = "show-btn" + (isActive ? " on" : "");
+    showBtn.textContent = isActive ? "● On wall" : "Show on wall";
+    showBtn.addEventListener("click", () =>
+      writeControl("socialPost", { type: p.type, code: p.code }),
+    );
+
     const x = document.createElement("button");
     x.type = "button";
     x.className = "x-btn";
     x.textContent = "×";
-    x.title = "Remove from wall";
-    x.addEventListener("click", () => removeSocialPost(p.code));
-    row.append(link, x);
-    list.appendChild(row);
+    x.title = "Remove";
+    x.addEventListener("click", () => {
+      removeSocialPost(p.code);
+      if (p.code === activeCode) writeControl("socialPost", null);
+    });
+
+    actions.append(showBtn, x);
+    card.append(frame, actions);
+    grid.appendChild(card);
   }
+}
+
+watchSocial((obj) => {
+  posts = Object.values(obj || {}).sort((a, b) =>
+    String(a.addedAt).localeCompare(String(b.addedAt)),
+  );
+  render();
+});
+
+watchControl("socialPost", (val) => {
+  activeCode = val && val.code ? val.code : null;
+  render();
 });
