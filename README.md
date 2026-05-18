@@ -102,8 +102,12 @@ always-on machine whose public IP is whitelisted in Larix Tuner:
 2. Copy `scripts/larix-credentials.example.json` to
    `scripts/larix-credentials.json` and fill in `clientId` / `apiKey`
    (this file is git-ignored — never commit it).
-3. Set each camera's device **description** in Tuner to its map name.
-4. Run it (Node 18+): `node scripts/rabbit-poll.mjs` — leave it running.
+3. **For each camera's device in Tuner:** set its **description** to the
+   map name ("Cam 1", …), enable **remote control**, and in the
+   remote-control panel turn on **Location information → Enabled**.
+   Without that last toggle, Tuner returns no GPS for the device.
+4. On each phone: Larix Premium active, with location permission granted.
+5. Run it (Node 18+): `node scripts/rabbit-poll.mjs` — leave it running.
 4. Project settings → **Your apps** → add a **Web app** → copy the config
    values into `assets/firebase-config.js` (these values are *not* secret).
 
