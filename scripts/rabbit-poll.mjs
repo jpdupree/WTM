@@ -54,7 +54,11 @@ async function poll() {
     // Not sharing location, or offline — drop it from the maps.
     if (!d.geo_granted || d.sync_status === "offline") {
       await fetch(node, { method: "DELETE" });
-      console.log(`  - ${tag}: skipped (sync=${d.sync_status}, geo_granted=${d.geo_granted})`);
+      console.log(
+        `  - ${tag}: skipped (sync=${d.sync_status}, ` +
+          `geo_granted=${d.geo_granted}, remote_control=${d.remote_control}, ` +
+          `last_sync=${d.last_sync})`,
+      );
       continue;
     }
 
