@@ -51,10 +51,30 @@ export async function readControl(path) {
 
 // --- rabbit (camera-operator) GPS ------------------------------------
 
-// Subscribe to all camera positions. Positions are written server-side
-// by the OwnTracks bridge function (see functions/index.js).
+// Subscribe to all camera positions. Positions are written by the
+// Larix Tuner poller (scripts/rabbit-poll.mjs).
 export async function watchRabbits(cb) {
   const f = await load();
   if (!f) return;
   f.onValue(f.ref(f.db, "rabbits"), (snap) => cb(snap.val() || {}));
+}
+
+// --- social wall (curated Instagram posts) --------------------------
+
+export async function watchSocial(cb) {
+  const f = await load();
+  if (!f) return;
+  f.onValue(f.ref(f.db, "social"), (snap) => cb(snap.val() || {}));
+}
+
+export async function setSocialPost(id, value) {
+  const f = await load();
+  if (!f) return;
+  return f.set(f.ref(f.db, "social/" + id), value);
+}
+
+export async function removeSocialPost(id) {
+  const f = await load();
+  if (!f) return;
+  return f.set(f.ref(f.db, "social/" + id), null);
 }

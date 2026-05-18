@@ -82,13 +82,21 @@ change. `data/sample-results-2025.json` is kept as an offline fixture.
    {
      "rules": {
        "control": { ".read": true, ".write": true },
-       "rabbits": { ".read": true, ".write": true }
+       "rabbits": { ".read": true, ".write": true },
+       "social": { ".read": true, ".write": true }
      }
    }
    ```
    vMix and the graphics read without logging in, so read must be public.
-   `control` carries commentator state; `rabbits` carries camera GPS,
-   written by the Larix Tuner poller (`scripts/rabbit-poll.mjs`).
+   `control` carries commentator state; `rabbits` carries camera GPS
+   (Larix Tuner poller); `social` carries the curated Instagram posts.
+
+## Social wall
+
+A curated Instagram wall — no API or Meta app review needed. A crew
+member opens `social-admin.html`, pastes the links of good `#wtm2026`
+posts, and `social.html` (a vMix Web Browser input) cycles through
+them. Only posts that are added show; remove any with the ×.
 
 ## Camera GPS (Larix Tuner)
 

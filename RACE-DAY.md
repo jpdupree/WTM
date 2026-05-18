@@ -63,6 +63,8 @@ This list grows — more items will be added as they come up.
 - [ ] Web Browser input → `…/graphics/map.html` (append `?rabbits=1`
       to show the cameras)
 - [ ] Web Browser input → `…/graphics/chart.html`
+- [ ] Web Browser input → `…/social.html` (curated Instagram wall)
+- [ ] A crew member curates the wall from `…/social-admin.html`
 
 ## 4. Camera GPS — Larix Tuner poller
 
