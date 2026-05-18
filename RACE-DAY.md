@@ -82,6 +82,11 @@ whole event.
 - [ ] Start the poller: `node scripts/rabbit-poll.mjs` — leave the
       window open. Lines like `+ Cam 1: 52.89…, -0.77…` mean it's live.
 
+> **New Larix Tuner account?** Nothing in the dashboard code changes.
+> Just enable the API on the new account, put the new `clientId` /
+> `apiKey` into `scripts/larix-credentials.json`, re-whitelist the
+> machine's IP, and redo the per-device setup above.
+
 ## 5. Troubleshooting
 
 | Symptom | Fix |
