@@ -119,6 +119,21 @@ button.ghost.on { background: #06b6d4; color: #04222a; border-color: #06b6d4; }
 .live-panel.error { color: #ff7a7a; }
 .live-name { font-weight: 700; font-size: 1.05rem; }
 .live-detail { color: var(--muted); margin-top: 2px; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  gap: 8px 14px;
+  margin-top: 10px;
+}
+.stat { display: flex; flex-direction: column; }
+.stat-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.stat-value { font-size: 0.95rem; font-weight: 600; }
 .live-panel .muted { color: var(--muted); }
 .live-panel > div { margin: 2px 0; }
 

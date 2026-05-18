@@ -140,11 +140,33 @@ function pushSolo() {
   const name = document.createElement("div");
   name.className = "live-name";
   name.textContent = `#${r.Bib}  ${r.Name}`;
-  const detail = document.createElement("div");
-  detail.className = "live-detail";
-  detail.textContent =
-    `Rank ${r.Rank} • ${r.Laps} laps • ${r.Distance} • ${r.TotalTime}`;
-  soloLive.append(name, detail);
+  soloLive.appendChild(name);
+
+  const grid = document.createElement("div");
+  grid.className = "stat-grid";
+  const stats = [
+    ["Place", r.Rank],
+    ["Nation", r.Nation],
+    ["Laps", r.Laps],
+    ["Distance", r.Distance],
+    ["Last Lap", r.LastLapTime],
+    ["Total Time", r.TotalTime],
+    ["Last Seen", r.LastSeen],
+    ["Last Seen TOD", r.LastSeenTOD],
+  ];
+  for (const [label, value] of stats) {
+    const cell = document.createElement("div");
+    cell.className = "stat";
+    const l = document.createElement("span");
+    l.className = "stat-label";
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.className = "stat-value";
+    v.textContent = value == null || value === "" ? "—" : String(value);
+    cell.append(l, v);
+    grid.appendChild(cell);
+  }
+  soloLive.appendChild(grid);
 
   if (configured) {
     // Written as a one-row array so vMix's JSON Data Source reads it
