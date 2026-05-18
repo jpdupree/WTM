@@ -22,12 +22,25 @@ html, body {
   height: 100%;
 }
 
+.post { position: relative; width: 400px; }
+
 .ig-frame {
-  width: 400px;
+  display: block;
+  width: 100%;
   height: 540px;
   border: none;
   background: #fff;
   border-radius: 4px;
+}
+
+/* Covers the non-working "View profile" button in the embed header. */
+.vp-cover {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 116px;
+  height: 38px;
+  background: #fff;
 }
 
 .empty {
