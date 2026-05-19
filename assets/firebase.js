@@ -51,15 +51,25 @@ export async function readControl(path) {
 
 // --- live results feed ----------------------------------------------
 
+// A live snapshot older than this is treated as no live feed at all —
+// the poller writes every 20s, so a stale /results means it has stopped
+// (or a leftover test snapshot). The race-day poller never approaches
+// this gap, so the caller correctly falls back to the static file.
+const RESULTS_MAX_AGE_MS = 5 * 60_000;
+
 // Subscribe to the live results snapshot written by the race-day poller
 // (scripts/results-poll.mjs). The callback fires with the same
-// { updatedAt, slices } shape as data/results.json, or null when the
-// poller hasn't published yet. Returns false when Firebase is
-// unavailable so the caller can fall back to the static results.json.
+// { updatedAt, slices } shape as data/results.json, or null when there
+// is no fresh live feed. Returns false when Firebase is unavailable so
+// the caller can fall back to the static results.json.
 export async function watchResults(cb) {
   const f = await load();
   if (!f) return false;
-  f.onValue(f.ref(f.db, "results"), (snap) => cb(snap.val()));
+  f.onValue(f.ref(f.db, "results"), (snap) => {
+    const v = snap.val();
+    const age = v && v.updatedAt ? Date.now() - new Date(v.updatedAt).getTime() : Infinity;
+    cb(age < RESULTS_MAX_AGE_MS ? v : null);
+  });
   return true;
 }
 
