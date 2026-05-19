@@ -197,7 +197,7 @@ tr.open td { background: var(--panel-2); }
   font-weight: 600;
 }
 
-.team-members { margin-top: 14px; }
+.team-members { margin-bottom: 20px; }
 .tm-head {
   color: var(--muted);
   text-transform: uppercase;
