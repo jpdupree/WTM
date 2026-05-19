@@ -1,14 +1,14 @@
 # WTM 2026 — Race Day Runbook
 
 Step-by-step to bring the dashboard, graphics, and camera GPS live. The
-"Before race day" section is pre-event prep; sections 1–5 are race day.
+"Before race day" section is pre-event prep; sections 1–6 are race day.
 
-## Before race day — move the poller to the AWS machine
+## Before race day — move the pollers to the AWS machine
 
-Testing runs on a personal machine; for the event the camera-GPS poller
-must run on the always-on AWS / vMix machine. (Everything else — the
-dashboard, Firebase, the pages — is cloud-hosted and needs nothing on
-that machine.)
+Testing runs on a personal machine; for the event two pollers must run
+on the always-on AWS / vMix machine — the **camera-GPS poller** and the
+**live results poller**. (Everything else — the dashboard, Firebase, the
+pages — is cloud-hosted and needs nothing on that machine.)
 
 - [ ] Give the AWS instance a **static Elastic IP** (free while the
       instance is running) so its outbound IP never changes.
@@ -16,12 +16,17 @@ that machine.)
 - [ ] On the AWS machine: install **Node 18+** and `git clone` this repo.
 - [ ] Create `scripts/larix-credentials.json` there with the Tuner
       `clientId` / `apiKey`.
+- [ ] Create `scripts/feed-config.json` there with the RaceResult
+      `overallFeedUrl` / `teamFeedUrl` (copy from
+      `feed-config.example.json`).
 - [ ] Test once: `node scripts/rabbit-poll.mjs` — it should list devices
       with no `403`.
-- [ ] Make it **auto-start and stay running** so a reboot can't kill it
-      (Windows scheduled task at logon, or NSSM as a service). Ask
+- [ ] Test once: `node scripts/results-poll.mjs` — it should print
+      `pushed N athletes`.
+- [ ] Make both **auto-start and stay running** so a reboot can't kill
+      them (Windows scheduled task at logon, or NSSM as a service). Ask
       Claude to set this up if needed.
-- [ ] Stop the test poller on the personal machine.
+- [ ] Stop the test pollers on the personal machine.
 
 ## Production machine — software to start
 
@@ -53,6 +58,11 @@ This list grows — more items will be added as they come up.
       (creates a transparent placeholder for every bib without a photo;
       never overwrites real photos).
 
+The GitHub Action above is the **fallback** — it refreshes results every
+5–10 minutes. For near-real-time standings during the broadcast the
+**live results poller** (section 4) takes over; the pages switch to its
+feed automatically the moment it starts publishing.
+
 ## 2. Pages (GitHub Pages)
 
 | Page | URL |
@@ -75,7 +85,21 @@ This list grows — more items will be added as they come up.
 - [ ] Web Browser input → `…/social.html` (curated Instagram wall)
 - [ ] A crew member curates the wall from `…/social-admin.html`
 
-## 4. Camera GPS — Larix Tuner poller
+## 4. Live results poller
+
+For near-real-time standings, `results-poll.mjs` runs on the AWS / vMix
+machine and pushes the RaceResult feeds to Firebase every 20s — the
+pages pick up each change within seconds. The GitHub Action (section 1)
+stays on as the fallback if this poller stops.
+
+- [ ] Machine has Node 18+ and a copy of this repo (`git pull` for latest).
+- [ ] `scripts/feed-config.json` exists with `overallFeedUrl` and
+      `teamFeedUrl` (copy from `feed-config.example.json`).
+- [ ] Start the poller: `node scripts/results-poll.mjs` — leave the
+      window open. Lines like `pushed 659 athletes, 16 teams` mean it's
+      live.
+
+## 5. Camera GPS — Larix Tuner poller
 
 The poller runs on the AWS / vMix machine and must stay running for the
 whole event.
@@ -98,11 +122,12 @@ whole event.
 > `apiKey` into `scripts/larix-credentials.json`, re-whitelist the
 > machine's IP, and redo the per-device setup above.
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| Poller `HTTP 403` | The machine's IP isn't whitelisted — check its current public IP and update the Tuner whitelist. |
+| Leaderboard not updating live | The results poller isn't running — start `node scripts/results-poll.mjs` on the AWS machine. Until then the pages fall back to the 5–10 min GitHub Action. |
+| Camera poller `HTTP 403` | The machine's IP isn't whitelisted — check its current public IP and update the Tuner whitelist. |
 | `geo_granted=false` | Enable remote control for that device in Tuner. |
 | `no location (status=error)` | Turn on **Location information → Enabled** in that device's remote-control panel. |
 | Camera missing from a map | Confirm the poller window shows a `+` line for it; check the map's Rabbits toggle is on. |

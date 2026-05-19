@@ -4,8 +4,12 @@
 // (RACE_FEED_TEAMS) so it carries team names and combined mileage. If a
 // fetch fails, the previous file is left untouched so a transient API
 // hiccup won't blank the dashboard.
+//
+// This is the scheduled-Action path. The race-day live path is
+// scripts/results-poll.mjs, which shares build-slices.mjs with this.
 
 import { readFile, writeFile } from "node:fs/promises";
+import { fetchFeed, buildSlices } from "./build-slices.mjs";
 
 const OUT = new URL("../data/results.json", import.meta.url);
 const FEED_URL = process.env.RACE_FEED_OVERALL;
@@ -19,24 +23,6 @@ async function readPrevious() {
   }
 }
 
-async function fetchFeed(url) {
-  const res = await fetch(url, { headers: { "cache-control": "no-cache" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data)) throw new Error("expected a JSON array");
-  return data;
-}
-
-const byRank = (a, b) => (parseFloat(a.Rank) || 1e9) - (parseFloat(b.Rank) || 1e9);
-
-// A gender/category subset, re-ranked 1..N (overall rank kept as Overall).
-function subset(rows, predicate) {
-  return rows
-    .filter(predicate)
-    .sort(byRank)
-    .map((r, i) => ({ ...r, Overall: r.Rank, Rank: i + 1 }));
-}
-
 if (!FEED_URL) {
   console.error("RACE_FEED_OVERALL secret is not set.");
   process.exit(1);
@@ -44,7 +30,7 @@ if (!FEED_URL) {
 
 let overall;
 try {
-  overall = (await fetchFeed(FEED_URL)).sort(byRank);
+  overall = await fetchFeed(FEED_URL);
   console.log(`fetched ${overall.length} rows`);
 } catch (err) {
   console.error(`fetch failed: ${err.message} — keeping previous data.`);
@@ -55,31 +41,22 @@ if (!overall.some((r) => r.AgeGroupCategory)) {
   console.warn("feed has no AgeGroupCategory — age-group features will be inert.");
 }
 
-// The team standings come from a separate team-level report — already
-// one row per team, with the team name in `Name` and combined laps /
-// distance. Without that feed (or if it fails) fall back to deriving
-// teams from the overall feed, which only lists individual members.
-let teams;
+// The team standings come from a separate team-level report. Without
+// that feed (or if it fails) buildSlices derives teams from the overall
+// feed, which only lists individual members.
+let teamRows = null;
 if (TEAMS_URL) {
   try {
-    teams = (await fetchFeed(TEAMS_URL)).sort(byRank);
-    console.log(`fetched ${teams.length} team rows`);
+    teamRows = await fetchFeed(TEAMS_URL);
+    console.log(`fetched ${teamRows.length} team rows`);
   } catch (err) {
     console.warn(`team feed fetch failed: ${err.message} — deriving teams from the overall feed.`);
-    teams = subset(overall, (r) => r.Category === "Team");
   }
 } else {
   console.warn("RACE_FEED_TEAMS not set — deriving teams from the overall feed.");
-  teams = subset(overall, (r) => r.Category === "Team");
 }
 
-const sex = (r) => String(r.Sex).toLowerCase();
-const slices = {
-  overall,
-  men: subset(overall, (r) => r.Category === "Individual" && sex(r) === "m"),
-  women: subset(overall, (r) => r.Category === "Individual" && sex(r) === "f"),
-  teams,
-};
+const slices = buildSlices(overall, teamRows);
 
 // Skip the write when nothing changed, so an unchanging feed (e.g. an
 // archived event) doesn't churn out a commit every run.

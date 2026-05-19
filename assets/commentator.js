@@ -1,4 +1,4 @@
-import { configured, writeControl, watchRabbits } from "./firebase.js";
+import { configured, writeControl, watchRabbits, watchResults } from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
 import { project, drawChart, chartLegend, markDim, secToHms, pitStats, pitFmt, SERIES_COLORS } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
@@ -398,19 +398,37 @@ function pushPrediction() {
 }
 
 // --- data loading ----------------------------------------------------
+function applyResults(data) {
+  if (!data || !data.slices) return;
+  results = data;
+  if (soloBib != null) pushSolo();
+  renderPrediction();
+}
+
+// Once the live poller's results arrive over Firebase, stop polling the
+// static file — Firebase pushes every change on its own.
+let liveResults = false;
+
 async function loadResults() {
+  if (liveResults) return;
   try {
     const res = await fetch("data/results.json?t=" + Date.now(), { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    results = await res.json();
+    applyResults(await res.json());
   } catch {
-    return; // keep previous data on a transient failure
+    /* keep previous data on a transient failure */
   }
-  if (soloBib != null) pushSolo();
-  renderPrediction();
 }
 
 window.addEventListener("resize", renderPrediction);
 
 loadResults();
 setInterval(loadResults, REFRESH_MS);
+
+// Live results from the race-day poller take over the moment they land.
+watchResults((data) => {
+  if (data && data.slices) {
+    liveResults = true;
+    applyResults(data);
+  }
+});

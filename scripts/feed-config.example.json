@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy this file to feed-config.json and fill in the RaceResult feed URLs. feed-config.json is git-ignored. Used by scripts/results-poll.mjs.",
+  "overallFeedUrl": "https://example.raceresult.com/.../OCRReportall-feed-url",
+  "teamFeedUrl": "https://api.raceresult.com/.../team-standings-feed-url"
+}
