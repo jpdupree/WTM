@@ -1,12 +1,15 @@
 // Fetches the enriched RaceResult feed (the OCRReportall report for
-// everyone) and writes data/results.json. The men/women/teams slices
-// are derived from it. If the fetch fails, the previous file is left
-// untouched so a transient API hiccup won't blank the dashboard.
+// everyone) and writes data/results.json. The men/women slices are
+// derived from it; the teams slice comes from its own team-level feed
+// (RACE_FEED_TEAMS) so it carries team names and combined mileage. If a
+// fetch fails, the previous file is left untouched so a transient API
+// hiccup won't blank the dashboard.
 
 import { readFile, writeFile } from "node:fs/promises";
 
 const OUT = new URL("../data/results.json", import.meta.url);
 const FEED_URL = process.env.RACE_FEED_OVERALL;
+const TEAMS_URL = process.env.RACE_FEED_TEAMS;
 
 async function readPrevious() {
   try {
@@ -52,12 +55,30 @@ if (!overall.some((r) => r.AgeGroupCategory)) {
   console.warn("feed has no AgeGroupCategory — age-group features will be inert.");
 }
 
+// The team standings come from a separate team-level report — already
+// one row per team, with the team name in `Name` and combined laps /
+// distance. Without that feed (or if it fails) fall back to deriving
+// teams from the overall feed, which only lists individual members.
+let teams;
+if (TEAMS_URL) {
+  try {
+    teams = (await fetchFeed(TEAMS_URL)).sort(byRank);
+    console.log(`fetched ${teams.length} team rows`);
+  } catch (err) {
+    console.warn(`team feed fetch failed: ${err.message} — deriving teams from the overall feed.`);
+    teams = subset(overall, (r) => r.Category === "Team");
+  }
+} else {
+  console.warn("RACE_FEED_TEAMS not set — deriving teams from the overall feed.");
+  teams = subset(overall, (r) => r.Category === "Team");
+}
+
 const sex = (r) => String(r.Sex).toLowerCase();
 const slices = {
   overall,
   men: subset(overall, (r) => r.Category === "Individual" && sex(r) === "m"),
   women: subset(overall, (r) => r.Category === "Individual" && sex(r) === "f"),
-  teams: subset(overall, (r) => r.Category === "Team"),
+  teams,
 };
 
 // Skip the write when nothing changed, so an unchanging feed (e.g. an

@@ -28,6 +28,7 @@ jobs:
       - name: Fetch feed
         env:
           RACE_FEED_OVERALL: ${{ secrets.RACE_FEED_OVERALL }}
+          RACE_FEED_TEAMS: ${{ secrets.RACE_FEED_TEAMS }}
         run: node scripts/fetch-results.mjs
 
       - name: Commit updated results

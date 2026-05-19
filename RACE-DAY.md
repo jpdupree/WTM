@@ -38,6 +38,10 @@ This list grows — more items will be added as they come up.
       event's enriched (`OCRReportall`) feed URL. The feed must include
       `Sex`, `AgeGroupCategory`, the per-lap `FirstLap`…`TwentyfifthLap`
       splits, and the `Pit1`…`Pit25` pit times.
+- [ ] Update the `RACE_FEED_TEAMS` GitHub Actions secret to the 2026
+      event's team-standings feed URL — one row per team, with the team
+      name in `Name` and the combined `Laps` / `Distance`. Without it
+      the Teams tab falls back to listing individual team members.
 - [ ] (Optional) Tighten the schedule in
       `.github/workflows/fetch-results.yml` — `*/5 * * * *` for every
       5 minutes (GitHub's minimum interval).
