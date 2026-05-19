@@ -73,6 +73,62 @@ function pitFmt(sec) {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
+// Athletes who belong to a team, found by matching their `Club` field
+// (set in the all-athletes feed) to the team's name. Sorted by rank.
+function teamMembers(teamName) {
+  const key = String(teamName || "").trim().toLowerCase();
+  if (!key) return [];
+  const all = (state.data && state.data.slices && state.data.slices.overall) || [];
+  return all
+    .filter((r) => String(r.Club || "").trim().toLowerCase() === key)
+    .sort((a, b) => num(a.Rank) - num(b.Rank));
+}
+
+// The roster block appended to an expanded team row.
+function teamMembersEl(teamName) {
+  const sec = document.createElement("div");
+  sec.className = "team-members";
+  const members = teamMembers(teamName);
+
+  const head = document.createElement("div");
+  head.className = "tm-head";
+  head.textContent = "Team members" + (members.length ? ` (${members.length})` : "");
+  sec.appendChild(head);
+
+  if (members.length === 0) {
+    const p = document.createElement("div");
+    p.className = "tm-empty";
+    p.textContent = "No athletes list this team in their Club field yet.";
+    sec.appendChild(p);
+    return sec;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "tm-grid";
+  for (const label of ["Bib", "Name", "Laps", "Miles"]) {
+    const h = document.createElement("div");
+    h.className = "tm-col-head";
+    h.textContent = label;
+    grid.appendChild(h);
+  }
+  for (const m of members) {
+    const cells = [
+      { v: m.Bib, cls: "num" },
+      { v: m.Name, cls: "" },
+      { v: m.Laps, cls: "num" },
+      { v: m.Distance, cls: "num" },
+    ];
+    for (const c of cells) {
+      const d = document.createElement("div");
+      if (c.cls) d.className = c.cls;
+      d.textContent = c.v == null || c.v === "" ? "—" : String(c.v);
+      grid.appendChild(d);
+    }
+  }
+  sec.appendChild(grid);
+  return sec;
+}
+
 // Lap-by-lap detail panel shown when an athlete row is expanded.
 function lapDetail(row) {
   const wrap = document.createElement("div");
@@ -85,7 +141,10 @@ function lapDetail(row) {
     laps.push({ n: i + 1, time: String(t), pit: pitOf(row, i) });
   }
   if (laps.length === 0) {
-    wrap.textContent = "No lap data for this athlete.";
+    const note = document.createElement("div");
+    note.textContent = "No lap data.";
+    wrap.appendChild(note);
+    if (state.active === "teams") wrap.appendChild(teamMembersEl(row.Name));
     return wrap;
   }
 
@@ -117,6 +176,8 @@ function lapDetail(row) {
       `${ps.count} stop${ps.count === 1 ? "" : "s"}`;
     wrap.appendChild(summary);
   }
+
+  if (state.active === "teams") wrap.appendChild(teamMembersEl(row.Name));
   return wrap;
 }
 

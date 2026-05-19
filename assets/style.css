@@ -197,6 +197,31 @@ tr.open td { background: var(--panel-2); }
   font-weight: 600;
 }
 
+.team-members { margin-top: 14px; }
+.tm-head {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.tm-empty { color: var(--muted); font-size: 0.82rem; }
+.tm-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 3px 26px;
+  width: max-content;
+  max-width: 100%;
+}
+.tm-grid > div { color: var(--text); font-size: 0.85rem; }
+.tm-grid .tm-col-head {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 1px;
+}
+.tm-grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+
 footer { padding: 20px 24px; color: var(--muted); font-size: 0.8rem; text-align: center; }
 
 @media (max-width: 600px) {
