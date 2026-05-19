@@ -134,6 +134,8 @@ function lapDetail(row) {
   const wrap = document.createElement("div");
   wrap.className = "lap-detail";
 
+  if (state.active === "teams") wrap.appendChild(teamMembersEl(row.Name));
+
   const laps = [];
   for (let i = 0; i < LAP_FIELDS.length; i++) {
     const t = row[LAP_FIELDS[i]];
@@ -144,7 +146,6 @@ function lapDetail(row) {
     const note = document.createElement("div");
     note.textContent = "No lap data.";
     wrap.appendChild(note);
-    if (state.active === "teams") wrap.appendChild(teamMembersEl(row.Name));
     return wrap;
   }
 
@@ -177,7 +178,6 @@ function lapDetail(row) {
     wrap.appendChild(summary);
   }
 
-  if (state.active === "teams") wrap.appendChild(teamMembersEl(row.Name));
   return wrap;
 }
 
