@@ -43,6 +43,11 @@ This list grows — more items will be added as they come up.
       5 minutes (GitHub's minimum interval).
 - [ ] Actions tab → **Fetch WTM results** → **Run workflow** to pull
       results immediately. The run log should show `fetched N rows`.
+- [ ] Once the feed is live, fill the athlete-photo gaps so the
+      solo-stats graphic clears properly for athletes with no photo:
+      `node scripts/make-photo-blanks.mjs "<Athlete Photos folder>"`
+      (creates a transparent placeholder for every bib without a photo;
+      never overwrites real photos).
 
 ## 2. Pages (GitHub Pages)
 
