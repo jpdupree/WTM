@@ -46,6 +46,33 @@ function pitOf(row, lapIndex) {
   return String(v);
 }
 
+// Total / average / count of an athlete's pit stops across all laps.
+// Returns null when the athlete has no recorded pit time.
+function pitStats(row) {
+  let totalSec = 0;
+  let count = 0;
+  for (let i = 0; i < LAP_FIELDS.length; i++) {
+    const v = pitOf(row, i);
+    if (v == null) continue;
+    const sec = hmsSec(v);
+    if (!Number.isFinite(sec)) continue;
+    totalSec += sec;
+    count++;
+  }
+  if (count === 0) return null;
+  return { totalSec, count, avgSec: totalSec / count };
+}
+
+// Seconds → "M:SS", or "H:MM:SS" once it passes an hour.
+function pitFmt(sec) {
+  if (sec == null || !Number.isFinite(sec)) return "—";
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = String(sec % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
 // Lap-by-lap detail panel shown when an athlete row is expanded.
 function lapDetail(row) {
   const wrap = document.createElement("div");
@@ -80,6 +107,16 @@ function lapDetail(row) {
     });
   }
   wrap.appendChild(grid);
+
+  const ps = pitStats(row);
+  if (ps) {
+    const summary = document.createElement("div");
+    summary.className = "lap-pit-summary";
+    summary.textContent =
+      `Total pit ${pitFmt(ps.totalSec)} · avg ${pitFmt(ps.avgSec)} · ` +
+      `${ps.count} stop${ps.count === 1 ? "" : "s"}`;
+    wrap.appendChild(summary);
+  }
   return wrap;
 }
 
@@ -323,6 +360,7 @@ const OVERALL_COLS = [
   { key: "Laps", label: "Laps", cls: "num", type: "num" },
   { key: "Distance", label: "Miles", cls: "num", type: "num" },
   { key: "TotalTime", label: "Total", cls: "num", type: "time" },
+  { key: "PitTotal", label: "Pit", cls: "num hide-sm", type: "pit" },
   { key: "LastLapTime", label: "Last Lap", cls: "num hide-sm", type: "time" },
   { key: "LastSeen", label: "Last Seen", cls: "muted hide-sm", type: "text" },
 ];
@@ -337,6 +375,10 @@ function hmsSec(s) {
 function sortValue(row, col) {
   if (col.type === "num") return num(row[col.key]);
   if (col.type === "time") return hmsSec(row[col.key]);
+  if (col.type === "pit") {
+    const ps = pitStats(row);
+    return ps ? ps.totalSec : Infinity;
+  }
   return String(row[col.key] ?? "").toLowerCase();
 }
 
@@ -401,8 +443,13 @@ function buildSortableTable(rows) {
     for (const c of OVERALL_COLS) {
       const td = document.createElement("td");
       td.className = c.cls;
-      const v = row[c.key];
-      td.textContent = v == null || v === "" ? "—" : String(v);
+      if (c.type === "pit") {
+        const ps = pitStats(row);
+        td.textContent = ps ? pitFmt(ps.totalSec) : "—";
+      } else {
+        const v = row[c.key];
+        td.textContent = v == null || v === "" ? "—" : String(v);
+      }
       tr.appendChild(td);
     }
     tbody.appendChild(tr);

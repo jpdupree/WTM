@@ -1,6 +1,6 @@
 import { configured, writeControl, watchRabbits } from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
-import { project, drawChart, chartLegend, markDim, secToHms, SERIES_COLORS } from "./predict.js";
+import { project, drawChart, chartLegend, markDim, secToHms, pitStats, pitFmt, SERIES_COLORS } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
 import { rabbitList } from "./rabbits.js";
 import { VMIX_LINKS } from "./links.js";
@@ -144,6 +144,7 @@ function pushSolo() {
 
   const grid = document.createElement("div");
   grid.className = "stat-grid";
+  const ps = pitStats(r);
   const stats = [
     ["Place", r.Rank],
     ["Nation", r.Nation],
@@ -151,6 +152,8 @@ function pushSolo() {
     ["Distance", r.Distance],
     ["Last Lap", r.LastLapTime],
     ["Total Time", r.TotalTime],
+    ["Total Pit", ps ? pitFmt(ps.totalSec) : "—"],
+    ["Avg Pit", ps ? pitFmt(ps.avgSec) : "—"],
     ["Last Seen", r.LastSeen],
     ["Last Seen TOD", r.LastSeenTOD],
   ];

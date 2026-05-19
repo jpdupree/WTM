@@ -98,6 +98,35 @@ export function advance(p, elapsedSec) {
   return { ...p, miles, laps: Math.floor(miles / p.lapMiles) };
 }
 
+// --- Pit-time stats --------------------------------------------------
+
+// Total / average / count of an athlete's pit stops, from the feed's
+// Pit1..Pit25 fields. "-"/"" mean no pit. Null when there are none.
+export function pitStats(row) {
+  let totalSec = 0;
+  let count = 0;
+  for (let i = 1; i <= 25; i++) {
+    const v = row?.["Pit" + i];
+    if (v == null || v === "" || v === "-") continue;
+    const sec = hmsToSec(v);
+    if (sec == null) continue;
+    totalSec += sec;
+    count++;
+  }
+  if (count === 0) return null;
+  return { totalSec, count, avgSec: totalSec / count };
+}
+
+// Seconds → "M:SS", or "H:MM:SS" once past an hour.
+export function pitFmt(sec) {
+  if (sec == null || !Number.isFinite(sec)) return "—";
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = String(sec % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
 // Mark which entries are dimmed: when `focus` is non-empty, every entry
 // whose bib is not in it is dimmed so the focused ones stand out.
 export function markDim(entries, focus) {

@@ -190,6 +190,12 @@ tr.open td { background: var(--panel-2); }
   letter-spacing: 1px;
 }
 .lap-grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+.lap-pit-summary {
+  margin-top: 10px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
 
 footer { padding: 20px 24px; color: var(--muted); font-size: 0.8rem; text-align: center; }
 
