@@ -49,6 +49,20 @@ export async function readControl(path) {
   return (await f.get(f.ref(f.db, "control/" + path))).val();
 }
 
+// --- live results feed ----------------------------------------------
+
+// Subscribe to the live results snapshot written by the race-day poller
+// (scripts/results-poll.mjs). The callback fires with the same
+// { updatedAt, slices } shape as data/results.json, or null when the
+// poller hasn't published yet. Returns false when Firebase is
+// unavailable so the caller can fall back to the static results.json.
+export async function watchResults(cb) {
+  const f = await load();
+  if (!f) return false;
+  f.onValue(f.ref(f.db, "results"), (snap) => cb(snap.val()));
+  return true;
+}
+
 // --- rabbit (camera-operator) GPS ------------------------------------
 
 // Subscribe to all camera positions. Positions are written by the

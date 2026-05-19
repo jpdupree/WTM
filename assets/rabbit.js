@@ -1,4 +1,4 @@
-import { watchRabbits } from "./firebase.js";
+import { watchRabbits, watchResults } from "./firebase.js";
 import { rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
 import { SERIES_COLORS } from "./predict.js";
@@ -133,7 +133,12 @@ watchRabbits((obj) => {
   if (cmap) cmap.setRabbits(rabbitList(obj));
 });
 
+// Once the live poller's results arrive over Firebase, stop polling the
+// static file — Firebase pushes every change on its own.
+let liveResults = false;
+
 async function loadResults() {
+  if (liveResults) return;
   try {
     const res = await fetch("data/results.json?t=" + Date.now(), { cache: "no-store" });
     if (res.ok) results = await res.json();
@@ -145,3 +150,12 @@ async function loadResults() {
 
 loadResults();
 setInterval(loadResults, 30_000);
+
+// Live results from the race-day poller take over the moment they land.
+watchResults((data) => {
+  if (data && data.slices) {
+    liveResults = true;
+    results = data;
+    renderAthletes();
+  }
+});

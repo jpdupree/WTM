@@ -2,7 +2,7 @@
 // snapshot and resolves which athletes/goal to show — from Firebase live
 // state, or from ?bibs=1,2,3&goal=75 URL params to pin it manually.
 
-import { configured, watchControl } from "./firebase.js";
+import { configured, watchControl, watchResults } from "./firebase.js";
 
 let results = { slices: {} };
 let pred = null;
@@ -43,7 +43,15 @@ export function rowByBib(bib) {
 export function startGraphic(renderFn) {
   const run = () => renderFn(pred);
 
+  // Once the live poller's results arrive over Firebase, stop polling
+  // the static file — Firebase pushes every change on its own.
+  let liveResults = false;
+
   async function load() {
+    if (liveResults) {
+      run();
+      return;
+    }
     try {
       const res = await fetch("../data/results.json?t=" + Date.now(), {
         cache: "no-store",
@@ -61,6 +69,13 @@ export function startGraphic(renderFn) {
       run();
     });
   }
+  watchResults((data) => {
+    if (data && data.slices) {
+      liveResults = true;
+      results = data;
+      run();
+    }
+  });
   window.addEventListener("resize", run);
   load();
   setInterval(load, 30_000);

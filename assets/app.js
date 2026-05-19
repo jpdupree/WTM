@@ -1,4 +1,4 @@
-"use strict";
+import { watchResults } from "./firebase.js";
 
 // Tabs: each "slice" key maps to one of the four committed feeds.
 // "agegroups" splits the overall feed into 18 male/female age groups.
@@ -631,25 +631,42 @@ function setUpdated(text, isError) {
   el.className = isError ? "error" : "";
 }
 
-async function load() {
-  try {
-    const res = await fetch("data/results.json?t=" + Date.now(), { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    state.data = await res.json();
-    render();
-    if (state.data.updatedAt) {
-      const d = new Date(state.data.updatedAt);
-      setUpdated("Updated " + d.toLocaleString());
-    } else {
-      setUpdated("No results published yet — waiting on first feed fetch.");
-    }
-  } catch (err) {
-    setUpdated("Failed to load results: " + err.message, true);
+function applyData(data) {
+  if (!data || !data.slices) return;
+  state.data = data;
+  render();
+  if (data.updatedAt) {
+    setUpdated("Updated " + new Date(data.updatedAt).toLocaleString());
+  } else {
+    setUpdated("No results published yet — waiting on first feed fetch.");
   }
 }
 
-document.getElementById("refresh").addEventListener("click", load);
+// Once the live poller's results arrive over Firebase, stop polling the
+// static file — Firebase pushes every change on its own.
+let liveResults = false;
+
+async function loadStatic() {
+  if (liveResults) return;
+  try {
+    const res = await fetch("data/results.json?t=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    applyData(await res.json());
+  } catch (err) {
+    if (!state.data) setUpdated("Failed to load results: " + err.message, true);
+  }
+}
+
+document.getElementById("refresh").addEventListener("click", loadStatic);
 renderTabs();
 render();
-load();
-setInterval(load, REFRESH_MS);
+loadStatic();
+setInterval(loadStatic, REFRESH_MS);
+
+// Live results from the race-day poller take over the moment they land.
+watchResults((data) => {
+  if (data && data.slices) {
+    liveResults = true;
+    applyData(data);
+  }
+});
