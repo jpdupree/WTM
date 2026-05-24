@@ -55,7 +55,17 @@ if (!driveApiKey || !responsesFolder) {
 
 async function getJson(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.text();
+      const msg = JSON.parse(body)?.error?.message;
+      detail = msg || body.slice(0, 300);
+    } catch {
+      /* non-JSON body */
+    }
+    throw new Error(`HTTP ${res.status}${detail ? " — " + detail : ""}`);
+  }
   return res.json();
 }
 
