@@ -18,7 +18,6 @@ const grid = $("grid");
 const pollEl = $("poll-status");
 const fStatus = $("f-status");
 const fType = $("f-type");
-const fOrient = $("f-orient");
 const fSearch = $("f-search");
 const countEl = $("count");
 
@@ -98,7 +97,6 @@ $("add").addEventListener("click", () => {
     fileId,
     name: "Added by crew",
     caption: "",
-    portrait: false,
     submittedAt: new Date().toISOString(),
     source: "manual",
   });
@@ -188,7 +186,6 @@ async function pullSheet() {
     email: findCol(header, ["email"]),
     caption: findCol(header, ["description", "caption", "brief", "comment", "about"]),
     timestamp: findCol(header, ["timestamp", "date"]),
-    orientation: findCol(header, ["landscape or portrait", "orientation", "portrait"]),
     type: findCol(header, ["what type", "type of video", "type"]),
     video: detectVideoCol(data),
   };
@@ -204,8 +201,6 @@ async function pullSheet() {
       (col.email >= 0 && row[col.email]) ||
       "Anonymous";
     const caption = col.caption >= 0 ? row[col.caption] || "" : "";
-    const portrait =
-      col.orientation >= 0 && /portrait|vertical/i.test(row[col.orientation] || "");
     const submittedAt =
       toISO(col.timestamp >= 0 ? row[col.timestamp] : null) ||
       new Date().toISOString();
@@ -225,7 +220,6 @@ async function pullSheet() {
         fileId,
         name: String(name).trim(),
         caption: String(caption).trim(),
-        portrait,
         type,
         submittedAt,
         fields,
@@ -266,7 +260,7 @@ const FIELD_LABELS = [
   ["obstacle", "Obstacle/Location"],
   ["description", "Description"],
   ["excitement", "Excitement Level"],
-  ["landscape or portrait", null], // shown as the Portrait tag instead
+  ["landscape or portrait", null], // hide the old orientation question on existing rows
   ["permission to use", null], // rights/consent boilerplate
   ["confirm that i have the right", null],
 ];
@@ -306,9 +300,6 @@ function matchesFilters(s) {
   if (st === "unviewed" && s.viewed) return false;
   if (st === "viewed" && !s.viewed) return false;
   if (fType.value !== "all" && shortType(s.type) !== fType.value) return false;
-  const o = fOrient.value;
-  if (o === "portrait" && !s.portrait) return false;
-  if (o === "landscape" && s.portrait) return false;
   const q = fSearch.value.trim().toLowerCase();
   if (q) {
     const hay = [s.name, s.caption, ...(s.fields || []).map((f) => f.a)]
@@ -368,12 +359,6 @@ function render() {
     const who = document.createElement("div");
     who.className = "who";
     who.textContent = s.name || "Anonymous";
-    if (s.portrait) {
-      const tag = document.createElement("span");
-      tag.className = "tag";
-      tag.textContent = "Portrait";
-      who.appendChild(tag);
-    }
     meta.appendChild(who);
 
     if (s.submittedAt) {
@@ -431,7 +416,6 @@ function render() {
           fileId: s.fileId,
           name: s.name || "",
           caption: s.caption || "",
-          portrait: Boolean(s.portrait),
         });
     });
 
@@ -451,7 +435,7 @@ function render() {
   }
 }
 
-for (const el of [fStatus, fType, fOrient]) el.addEventListener("change", render);
+for (const el of [fStatus, fType]) el.addEventListener("change", render);
 fSearch.addEventListener("input", render);
 
 $("clear").addEventListener("click", () =>

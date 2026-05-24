@@ -22,19 +22,17 @@ html, body {
   height: 100%;
 }
 
-.clip { position: relative; width: 960px; max-width: 100%; }
-.clip.portrait { width: 420px; }
+.clip { position: relative; width: 420px; max-width: 100%; }
 
 .video-frame {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 9 / 16;
   height: auto;
   border: none;
   background: #000;
   border-radius: 6px;
 }
-.clip.portrait .video-frame { aspect-ratio: 9 / 16; }
 
 .label {
   margin-top: 10px;

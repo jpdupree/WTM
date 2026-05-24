@@ -74,18 +74,6 @@ button.ghost:hover { background: var(--panel); filter: none; color: var(--text);
 
 .video-card .meta { padding: 8px 10px; flex: 1; }
 .video-card .who { font-weight: 600; font-size: 0.9rem; color: var(--text); }
-.video-card .tag {
-  margin-left: 6px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--accent-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 1px 5px;
-  vertical-align: middle;
-}
 .video-card .caption {
   margin-top: 3px;
   font-size: 0.82rem;
