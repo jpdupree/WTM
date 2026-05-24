@@ -5,7 +5,11 @@ import {
   watchControl,
   writeControl,
 } from "./firebase.js";
-import { VIDEO_SHEET_CSV_URL, VIDEO_POLL_SECONDS } from "./video-config.js";
+import {
+  VIDEO_SHEET,
+  VIDEO_SHEET_CSV_URL,
+  VIDEO_POLL_SECONDS,
+} from "./video-config.js";
 
 const $ = (id) => document.getElementById(id);
 const urlInput = $("url");
@@ -13,8 +17,23 @@ const statusEl = $("status");
 const grid = $("grid");
 const pollEl = $("poll-status");
 
+// Work out the URL the browser fetches the rows from. A published-CSV URL
+// (if set) wins; otherwise build the gviz CSV endpoint from the shared
+// sheet's id — that needs only "Anyone with the link → Viewer".
+function sheetCsvUrl() {
+  if (VIDEO_SHEET_CSV_URL) return VIDEO_SHEET_CSV_URL;
+  if (!VIDEO_SHEET) return "";
+  const id = (String(VIDEO_SHEET).match(/[-\w]{30,}/) || [])[0];
+  if (!id) return "";
+  const gid = (String(VIDEO_SHEET).match(/[#?&]gid=(\d+)/) || [])[1];
+  let url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=1`;
+  if (gid) url += `&gid=${gid}`;
+  return url;
+}
+const CSV_URL = sheetCsvUrl();
+
 const banner = $("fb-banner");
-const autoPull = Boolean(VIDEO_SHEET_CSV_URL);
+const autoPull = Boolean(CSV_URL);
 if (!configured) {
   banner.textContent =
     "Preview mode — Firebase not configured (see README). Nothing will sync.";
@@ -24,7 +43,7 @@ if (!configured) {
   banner.className = "banner ok";
 } else {
   banner.textContent =
-    "Live, but no response-sheet URL set — paste it in assets/video-config.js to auto-pull. You can still add clips by link below.";
+    "Live, but no response sheet set — add it in assets/video-config.js to auto-pull. You can still add clips by link below.";
   banner.className = "banner warn";
 }
 
@@ -50,9 +69,14 @@ function extractFileIds(text) {
   return ids;
 }
 
+// Accept either a plain date string or gviz's Date(y,m,d,h,m,s) form.
 function toISO(ts) {
   if (!ts) return null;
-  const d = new Date(ts);
+  const s = String(ts).trim();
+  const g = s.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
+  const d = g
+    ? new Date(+g[1], +g[2], +g[3], +(g[4] || 0), +(g[5] || 0), +(g[6] || 0))
+    : new Date(s);
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -69,6 +93,7 @@ $("add").addEventListener("click", () => {
     fileId,
     name: "Added by crew",
     caption: "",
+    portrait: false,
     submittedAt: new Date().toISOString(),
     source: "manual",
   });
@@ -76,7 +101,7 @@ $("add").addEventListener("click", () => {
   setStatus("Added.", "ok");
 });
 
-// --- auto-pull from the published response sheet (CSV) ---------------
+// --- auto-pull from the response sheet (CSV) ------------------------
 
 // Minimal RFC-4180 CSV parser (handles quoted fields, commas, newlines).
 function parseCSV(text) {
@@ -105,34 +130,41 @@ function parseCSV(text) {
   return rows;
 }
 
-// Best-effort: figure out which columns hold the video, name, caption, time.
-function mapColumns(header) {
-  const idx = { video: -1, name: -1, caption: -1, timestamp: -1, email: -1 };
-  header.forEach((h, i) => {
-    const k = String(h).toLowerCase();
-    if (idx.timestamp < 0 && k.includes("timestamp")) idx.timestamp = i;
-    if (idx.email < 0 && k.includes("email")) idx.email = i;
-    if (idx.name < 0 && k.includes("name")) idx.name = i;
-    if (idx.caption < 0 &&
-        (k.includes("caption") || k.includes("description") ||
-         k.includes("title") || k.includes("about") ||
-         k.includes("message") || k.includes("tell"))) idx.caption = i;
-    if (idx.video < 0 &&
-        (k.includes("upload") || k.includes("video") ||
-         k.includes("file") || k.includes("clip"))) idx.video = i;
-  });
-  return idx;
+// First header column matching any keyword, tried in priority order.
+function findCol(header, keywords) {
+  for (const kw of keywords) {
+    const i = header.findIndex((h) => String(h).toLowerCase().includes(kw));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+// The upload column is the one whose cells actually hold Drive links — far
+// more reliable than matching a header (the form has other "video" columns).
+function detectVideoCol(dataRows) {
+  const counts = {};
+  for (const row of dataRows) {
+    row.forEach((cell, i) => {
+      if (extractFileIds(cell).length) counts[i] = (counts[i] || 0) + 1;
+    });
+  }
+  let best = -1;
+  let bestN = 0;
+  for (const i of Object.keys(counts)) {
+    if (counts[i] > bestN) { bestN = counts[i]; best = +i; }
+  }
+  return best;
 }
 
 async function pullSheet() {
   if (!autoPull || !configured) return;
   let text;
   try {
-    const res = await fetch(VIDEO_SHEET_CSV_URL, { redirect: "follow" });
+    const res = await fetch(CSV_URL, { redirect: "follow" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     text = await res.text();
   } catch (err) {
-    pollEl.textContent = `Couldn't read the sheet (${err.message}). Retrying…`;
+    pollEl.textContent = `Couldn't read the sheet (${err.message}). Check sharing, or set a Publish-to-web CSV URL in video-config.js. Retrying…`;
     pollEl.className = "poll-status warn";
     return;
   }
@@ -145,9 +177,19 @@ async function pullSheet() {
   }
 
   const header = rows[0];
-  const col = mapColumns(header);
+  const data = rows.slice(1);
+  const col = {
+    name: findCol(header, ["team name", "name"]),
+    email: findCol(header, ["email"]),
+    caption: findCol(header, ["description", "caption", "brief", "comment", "about"]),
+    timestamp: findCol(header, ["timestamp", "date"]),
+    orientation: findCol(header, ["landscape or portrait", "orientation", "portrait"]),
+    video: detectVideoCol(data),
+  };
+  if (col.video < 0) col.video = findCol(header, ["upload", "video file", "attach", "clip"]);
+
   let added = 0;
-  for (const row of rows.slice(1)) {
+  for (const row of data) {
     const cell = col.video >= 0 ? row[col.video] || "" : row.join(" ");
     const fileIds = extractFileIds(cell);
     if (!fileIds.length) continue;
@@ -156,6 +198,8 @@ async function pullSheet() {
       (col.email >= 0 && row[col.email]) ||
       "Anonymous";
     const caption = col.caption >= 0 ? row[col.caption] || "" : "";
+    const portrait =
+      col.orientation >= 0 && /portrait|vertical/i.test(row[col.orientation] || "");
     const submittedAt =
       toISO(col.timestamp >= 0 ? row[col.timestamp] : null) ||
       new Date().toISOString();
@@ -167,6 +211,7 @@ async function pullSheet() {
         fileId,
         name: String(name).trim(),
         caption: String(caption).trim(),
+        portrait,
         submittedAt,
         source: "form",
       });
@@ -220,6 +265,12 @@ function render() {
     const who = document.createElement("div");
     who.className = "who";
     who.textContent = s.name || "Anonymous";
+    if (s.portrait) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "Portrait";
+      who.appendChild(tag);
+    }
     meta.appendChild(who);
     if (s.caption) {
       const cap = document.createElement("div");
@@ -243,6 +294,7 @@ function render() {
           fileId: s.fileId,
           name: s.name || "",
           caption: s.caption || "",
+          portrait: Boolean(s.portrait),
         });
     });
 

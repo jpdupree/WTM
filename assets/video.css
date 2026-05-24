@@ -23,6 +23,7 @@ html, body {
 }
 
 .clip { position: relative; width: 960px; max-width: 100%; }
+.clip.portrait { width: 420px; }
 
 .video-frame {
   display: block;
@@ -33,6 +34,7 @@ html, body {
   background: #000;
   border-radius: 6px;
 }
+.clip.portrait .video-frame { aspect-ratio: 9 / 16; }
 
 .label {
   margin-top: 10px;

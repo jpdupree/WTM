@@ -117,24 +117,28 @@ sheet. One-time setup:
 
 1. **Link the form to a sheet:** open the form → **Responses** tab → click
    the green Sheets icon → link or create the response spreadsheet.
-2. **Publish that sheet as CSV:** in the spreadsheet, **File → Share →
-   Publish to web** → choose the responses tab and **Comma-separated values
-   (.csv)** → **Publish**. Copy the published URL (it ends in
-   `/pub?…output=csv`).
-3. **Paste the URL** into `VIDEO_SHEET_CSV_URL` in `assets/video-config.js`
-   (poll interval is `VIDEO_POLL_SECONDS`, default 30s).
+2. **Share the sheet:** in the spreadsheet, **Share → Anyone with the link →
+   Viewer**. (No "Publish to web" step needed — the page reads the shared
+   sheet directly via its gviz endpoint.)
+3. **Point the page at it:** paste the sheet's share URL into `VIDEO_SHEET`
+   in `assets/video-config.js` (poll interval is `VIDEO_POLL_SECONDS`,
+   default 30s).
 4. **Make the clips playable:** Form-uploaded files are private by default.
    In Drive, open the form's **"… (File responses)" folder → Share → Anyone
    with the link → Viewer**, so the embedded player works on the public
    on-air page.
 5. **Add the Firebase rule** for `video-submissions` (see step 3 of Setup).
 
-The admin page reads the file-upload, name, caption, and timestamp columns
-by header name, so the exact form questions don't have to match a fixed
-schema. A show runner can also paste a Drive video link to add one by hand,
-and the × hides anything you don't want to air. If the browser ever blocks
-the CSV fetch (CORS), say so and the pull can move to a scheduled Action
-instead.
+The admin page finds the upload column by which cells actually contain Drive
+links, and reads name, caption (description), timestamp, and
+landscape/portrait by header — so the exact form questions don't have to
+match a fixed schema, and portrait clips are framed 9:16 on air. A show
+runner can also paste a Drive video link to add one by hand, and the ×
+hides anything you don't want to air.
+
+If a browser ever blocks the gviz fetch (CORS), do **File → Share → Publish
+to web → CSV** on the sheet and put that `…/pub?…output=csv` URL in
+`VIDEO_SHEET_CSV_URL` (it overrides `VIDEO_SHEET`).
 
 ## Camera GPS (Larix Tuner)
 

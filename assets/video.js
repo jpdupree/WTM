@@ -12,7 +12,7 @@ watchControl("videoSubmission", (val) => {
   }
   emptyEl.hidden = true;
   const clip = document.createElement("div");
-  clip.className = "clip";
+  clip.className = "clip" + (val.portrait ? " portrait" : "");
   const iframe = document.createElement("iframe");
   iframe.className = "video-frame";
   iframe.src = `https://drive.google.com/file/d/${val.fileId}/preview`;
