@@ -38,6 +38,7 @@ site can't hold on its own.
 | `video-admin.html` | Video-submissions control (pick a clip to show) |
 | `video.html` | Video-submissions on-air output (vMix browser input) |
 | `assets/video-config.js` | **You fill this in** — published response-sheet CSV URL |
+| `scripts/vmix-video-poll.mjs` | Loads the picked clip into a vMix input (run on the vMix PC) |
 | `assets/course-data.js` | Generated lap geometry + obstacles |
 | `data/course.kml`, `scripts/build-course.mjs` | Course KML → `course-data.js` |
 | `data/results.json` | Latest feed snapshot, written by the Action |
@@ -139,6 +140,36 @@ hides anything you don't want to air.
 If a browser ever blocks the gviz fetch (CORS), do **File → Share → Publish
 to web → CSV** on the sheet and put that `…/pub?…output=csv` URL in
 `VIDEO_SHEET_CSV_URL` (it overrides `VIDEO_SHEET`).
+
+### Playing a clip as a real vMix input
+
+`video.html` plays Drive's embedded player in a browser input — fine for a
+quick look, but for broadcast-quality playback (clean audio, scrubbing) you
+want the actual file in a vMix Media input. vMix can't pull a file into an
+input from a Data Source or title, so a small bridge does it:
+`scripts/vmix-video-poll.mjs` watches the picked clip and loads the local
+Google-Drive-for-Desktop copy into a vMix **VideoList** input via the vMix
+API. Run it on the vMix PC, alongside the other pollers.
+
+1. **In vMix:** add an empty **List / VideoList** input named exactly
+   `Submission Clip` (or change `vmixInput` in the config). Settings → Web
+   Controller → enable it and note the port (default 8088). Optionally set
+   the input to play from the start when taken to program.
+2. **Google API key:** in Google Cloud, enable the **Drive API** and create
+   an **API key** (the submission files are shared "anyone with the link",
+   so a key alone resolves their filenames — no OAuth).
+3. **Config:** copy `scripts/vmix-config.example.json` to
+   `scripts/vmix-config.json` (git-ignored) and fill in `driveApiKey`, the
+   local `responsesFolder` (the form's "… (File responses)" subfolder that
+   holds the videos), `vmixApi`, and `vmixInput`.
+4. **Run it (Node 18+):** `node scripts/vmix-video-poll.mjs` — leave it
+   running. Each time the crew clicks **Show on air**, the clip lands in the
+   `Submission Clip` input; just cut to that input.
+
+The bridge maps the dashboard's Drive file id to the local filename via the
+Drive API (Drive-for-Desktop mirrors the exact name). If two uploads share a
+filename, Drive may suffix the local copy (e.g. ` (1)`), which would need a
+manual fix — rare at 100 MB clip sizes.
 
 ## Camera GPS (Larix Tuner)
 
