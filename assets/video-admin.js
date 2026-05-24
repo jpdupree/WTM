@@ -203,19 +203,35 @@ async function pullSheet() {
     const submittedAt =
       toISO(col.timestamp >= 0 ? row[col.timestamp] : null) ||
       new Date().toISOString();
+    // Every other answered question, in form order, for the curator card.
+    // Skip the upload, name (it's the heading) and timestamp (shown separately).
+    const fields = [];
+    header.forEach((h, i) => {
+      if (i === col.video || i === col.name || i === col.timestamp) return;
+      const a = (row[i] || "").trim();
+      if (a) fields.push({ q: String(h).trim(), a });
+    });
     for (const fileId of fileIds) {
-      // Skip anything we already have so manual edits / hides aren't undone.
-      if (submissions[fileId]) continue;
-      setVideoSubmission(fileId, {
+      const existing = submissions[fileId];
+      const record = {
         id: fileId,
         fileId,
         name: String(name).trim(),
         caption: String(caption).trim(),
         portrait,
         submittedAt,
+        fields,
         source: "form",
-      });
-      added++;
+      };
+      if (!existing) {
+        setVideoSubmission(fileId, record);
+        added++;
+      } else if (existing.source !== "manual" && !existing.fields) {
+        // Backfill the Q&A onto rows imported before this feature existed,
+        // keeping any hidden flag set by the crew.
+        setVideoSubmission(fileId, { ...record, hidden: existing.hidden || false });
+      }
+      // Otherwise leave it alone — don't undo manual edits or hides.
     }
   }
   const stamp = new Date().toLocaleTimeString();
@@ -272,7 +288,29 @@ function render() {
       who.appendChild(tag);
     }
     meta.appendChild(who);
-    if (s.caption) {
+
+    if (s.submittedAt) {
+      const d = new Date(s.submittedAt);
+      if (!isNaN(d.getTime())) {
+        const when = document.createElement("div");
+        when.className = "when";
+        when.textContent = "Submitted " + d.toLocaleString();
+        meta.appendChild(when);
+      }
+    }
+
+    if (s.fields && s.fields.length) {
+      const dl = document.createElement("dl");
+      dl.className = "fields";
+      for (const f of s.fields) {
+        const dt = document.createElement("dt");
+        dt.textContent = f.q;
+        const dd = document.createElement("dd");
+        dd.textContent = f.a;
+        dl.append(dt, dd);
+      }
+      meta.appendChild(dl);
+    } else if (s.caption) {
       const cap = document.createElement("div");
       cap.className = "caption";
       cap.textContent = s.caption;

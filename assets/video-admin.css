@@ -64,3 +64,16 @@ button.ghost:hover { background: var(--panel); filter: none; color: var(--text);
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.video-card .when { margin-top: 2px; font-size: 0.72rem; color: var(--muted); }
+
+.video-card .fields { margin: 8px 0 0; display: grid; gap: 6px; }
+.video-card .fields dt {
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.video-card .fields dd { margin: 1px 0 0; font-size: 0.85rem; color: var(--text); line-height: 1.35; }
