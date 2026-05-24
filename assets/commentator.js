@@ -1,4 +1,10 @@
-import { configured, writeControl, watchRabbits, watchResults } from "./firebase.js";
+import {
+  configured,
+  writeControl,
+  watchRabbits,
+  watchResults,
+  watchVideoSubmissions,
+} from "./firebase.js";
 import { LAP_MILES } from "./course-data.js";
 import { project, drawChart, chartLegend, markDim, secToHms, pitStats, pitFmt, SERIES_COLORS } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
@@ -34,6 +40,18 @@ if (configured) {
     "Preview mode — Firebase not configured. Selections won't reach vMix " +
     "until assets/firebase-config.js is filled in (see README).";
   banner.className = "banner warn";
+}
+
+// --- video submissions: unviewed badge on the nav link -------------
+const videoBadge = $("video-badge");
+if (videoBadge) {
+  watchVideoSubmissions((obj) => {
+    const n = Object.values(obj || {}).filter(
+      (s) => s && !s.hidden && !s.viewed,
+    ).length;
+    videoBadge.textContent = n;
+    videoBadge.hidden = n === 0;
+  });
 }
 
 // --- vMix quick links -----------------------------------------------

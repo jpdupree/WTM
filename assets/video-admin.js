@@ -16,6 +16,11 @@ const urlInput = $("url");
 const statusEl = $("status");
 const grid = $("grid");
 const pollEl = $("poll-status");
+const fStatus = $("f-status");
+const fType = $("f-type");
+const fOrient = $("f-orient");
+const fSearch = $("f-search");
+const countEl = $("count");
 
 // Work out the URL the browser fetches the rows from. A published-CSV URL
 // (if set) wins; otherwise build the gviz CSV endpoint from the shared
@@ -184,6 +189,7 @@ async function pullSheet() {
     caption: findCol(header, ["description", "caption", "brief", "comment", "about"]),
     timestamp: findCol(header, ["timestamp", "date"]),
     orientation: findCol(header, ["landscape or portrait", "orientation", "portrait"]),
+    type: findCol(header, ["what type", "type of video", "type"]),
     video: detectVideoCol(data),
   };
   if (col.video < 0) col.video = findCol(header, ["upload", "video file", "attach", "clip"]);
@@ -203,6 +209,7 @@ async function pullSheet() {
     const submittedAt =
       toISO(col.timestamp >= 0 ? row[col.timestamp] : null) ||
       new Date().toISOString();
+    const type = col.type >= 0 ? String(row[col.type] || "").trim() : "";
     // Every other answered question, in form order, for the curator card.
     // Skip the upload, name (it's the heading) and timestamp (shown separately).
     const fields = [];
@@ -219,6 +226,7 @@ async function pullSheet() {
         name: String(name).trim(),
         caption: String(caption).trim(),
         portrait,
+        type,
         submittedAt,
         fields,
         source: "form",
@@ -226,12 +234,12 @@ async function pullSheet() {
       if (!existing) {
         setVideoSubmission(fileId, record);
         added++;
-      } else if (existing.source !== "manual" && !existing.fields) {
-        // Backfill the Q&A onto rows imported before this feature existed,
-        // keeping any hidden flag set by the crew.
-        setVideoSubmission(fileId, { ...record, hidden: existing.hidden || false });
+      } else if (existing.source !== "manual" && (!existing.fields || !("type" in existing))) {
+        // Migrate rows imported before these fields existed, keeping the
+        // crew's hidden / viewed flags.
+        setVideoSubmission(fileId, { ...existing, ...record });
       }
-      // Otherwise leave it alone — don't undo manual edits or hides.
+      // Otherwise leave it alone — don't undo manual edits or flags.
     }
   }
   const stamp = new Date().toLocaleTimeString();
@@ -246,16 +254,58 @@ async function pullSheet() {
 let submissions = {};
 let activeId = null;
 let polling = false;
+let typeOptionsKey = "";
+
+// Keep the Type dropdown in sync with the types present, without clobbering
+// the crew's current selection on every poll.
+function syncTypeOptions(all) {
+  const types = [...new Set(all.map((s) => (s.type || "").trim()).filter(Boolean))].sort();
+  const key = types.join("|");
+  if (key === typeOptionsKey) return;
+  typeOptionsKey = key;
+  const cur = fType.value || "all";
+  fType.innerHTML = "";
+  fType.appendChild(new Option("All types", "all"));
+  for (const t of types) {
+    fType.appendChild(new Option(t.length > 44 ? t.slice(0, 44) + "…" : t, t));
+  }
+  fType.value = cur === "all" || types.includes(cur) ? cur : "all";
+}
+
+function matchesFilters(s) {
+  const st = fStatus.value;
+  if (st === "unviewed" && s.viewed) return false;
+  if (st === "viewed" && !s.viewed) return false;
+  if (fType.value !== "all" && (s.type || "") !== fType.value) return false;
+  const o = fOrient.value;
+  if (o === "portrait" && !s.portrait) return false;
+  if (o === "landscape" && s.portrait) return false;
+  const q = fSearch.value.trim().toLowerCase();
+  if (q) {
+    const hay = [s.name, s.caption, ...(s.fields || []).map((f) => f.a)]
+      .join(" ")
+      .toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
 
 function render() {
   grid.innerHTML = "";
-  const list = Object.values(submissions)
+  const all = Object.values(submissions)
     .filter((s) => s && !s.hidden && s.fileId)
     .sort((a, b) =>
       String(b.submittedAt).localeCompare(String(a.submittedAt)),
     );
 
-  if (list.length === 0) {
+  syncTypeOptions(all);
+  const list = all.filter(matchesFilters);
+  const unviewed = all.filter((s) => !s.viewed).length;
+  countEl.textContent = all.length
+    ? `${list.length} of ${all.length} shown · ${unviewed} unviewed`
+    : "";
+
+  if (all.length === 0) {
     const note = document.createElement("div");
     note.className = "empty-note";
     note.textContent = autoPull
@@ -264,11 +314,19 @@ function render() {
     grid.appendChild(note);
     return;
   }
+  if (list.length === 0) {
+    const note = document.createElement("div");
+    note.className = "empty-note";
+    note.textContent = "No submissions match the filters.";
+    grid.appendChild(note);
+    return;
+  }
 
   for (const s of list) {
     const isActive = s.id === activeId;
     const card = document.createElement("div");
-    card.className = "video-card" + (isActive ? " active" : "");
+    card.className =
+      "video-card" + (isActive ? " active" : "") + (s.viewed ? " viewed" : "");
 
     const frame = document.createElement("iframe");
     frame.className = "preview";
@@ -320,6 +378,16 @@ function render() {
     const actions = document.createElement("div");
     actions.className = "card-actions";
 
+    const viewed = document.createElement("label");
+    viewed.className = "viewed-toggle";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = Boolean(s.viewed);
+    cb.addEventListener("change", () =>
+      setVideoSubmission(s.id, { ...s, viewed: cb.checked }),
+    );
+    viewed.append(cb, document.createTextNode("Viewed"));
+
     const showBtn = document.createElement("button");
     showBtn.type = "button";
     showBtn.className = "show-btn" + (isActive ? " on" : "");
@@ -346,11 +414,14 @@ function render() {
       if (s.id === activeId) writeControl("videoSubmission", null);
     });
 
-    actions.append(showBtn, x);
+    actions.append(viewed, showBtn, x);
     card.append(frame, meta, actions);
     grid.appendChild(card);
   }
 }
+
+for (const el of [fStatus, fType, fOrient]) el.addEventListener("change", render);
+fSearch.addEventListener("input", render);
 
 $("clear").addEventListener("click", () =>
   writeControl("videoSubmission", null),

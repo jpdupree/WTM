@@ -6,6 +6,22 @@
 .banner.ok { background: #173524; color: #6fe0a0; }
 .banner.warn { background: #3a2e12; color: var(--accent); }
 
+.nav-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  margin: 0 2px;
+  background: #ff5b5b;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 9px;
+  vertical-align: middle;
+}
+.nav-badge[hidden] { display: none; }
+
 .linkbar {
   display: flex;
   align-items: center;

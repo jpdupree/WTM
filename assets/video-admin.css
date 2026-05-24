@@ -22,6 +22,37 @@ button.ghost:hover { background: var(--panel); filter: none; color: var(--text);
 .poll-status.ok { color: #6fe0a0; }
 .poll-status.warn { color: var(--accent); }
 
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 4px; }
+.filters select,
+.filters input[type="search"] {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+.filters input[type="search"] { flex: 1; min-width: 150px; }
+.filters select:focus, .filters input:focus { outline: 2px solid var(--accent-2); }
+.filters .count { color: var(--muted); font-size: 0.8rem; margin-left: auto; white-space: nowrap; }
+
+.card-actions { flex-wrap: wrap; }
+.viewed-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.viewed-toggle input { accent-color: #46d17f; cursor: pointer; }
+
+.video-card.viewed { opacity: 0.6; }
+.video-card.viewed:hover { opacity: 1; }
+
 .video-card {
   background: var(--panel);
   border: 2px solid var(--line);

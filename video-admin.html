@@ -40,6 +40,26 @@
       <button id="clear" type="button" class="ghost">Take off air</button>
     </div>
     <div id="poll-status" class="poll-status"></div>
+
+    <div class="filters">
+      <select id="f-status">
+        <option value="all">All</option>
+        <option value="unviewed">Unviewed</option>
+        <option value="viewed">Viewed</option>
+      </select>
+      <select id="f-type">
+        <option value="all">All types</option>
+      </select>
+      <select id="f-orient">
+        <option value="all">Any orientation</option>
+        <option value="portrait">Portrait</option>
+        <option value="landscape">Landscape</option>
+      </select>
+      <input id="f-search" type="search" autocomplete="off"
+             placeholder="Search name or text…" />
+      <span id="count" class="count"></span>
+    </div>
+
     <div id="grid" class="post-grid"></div>
   </main>
 
