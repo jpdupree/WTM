@@ -102,3 +102,18 @@ export async function removeSocialPost(id) {
   if (!f) return;
   return f.set(f.ref(f.db, "social/" + id), null);
 }
+
+// --- video submissions (Google Form uploads) ------------------------
+
+// All submissions pulled from the response sheet (plus any added by hand).
+export async function watchVideoSubmissions(cb) {
+  const f = await load();
+  if (!f) return;
+  f.onValue(f.ref(f.db, "video-submissions"), (snap) => cb(snap.val() || {}));
+}
+
+export async function setVideoSubmission(id, value) {
+  const f = await load();
+  if (!f) return;
+  return f.set(f.ref(f.db, "video-submissions/" + id), value);
+}

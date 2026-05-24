@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WTM — Video Submissions Control</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <link rel="stylesheet" href="assets/social-admin.css" />
+  <link rel="stylesheet" href="assets/video-admin.css" />
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>Video Submissions — Control</h1>
+      <p class="sub">World's Toughest Mudder 2026</p>
+    </div>
+    <div class="status">
+      <a class="link" href="social-admin.html">Social Wall →</a>
+      <a class="link" href="commentator.html">Commentator →</a>
+    </div>
+  </header>
+
+  <div id="fb-banner" class="banner">Checking sync…</div>
+
+  <main class="social-main">
+    <p class="hint">Submissions to the video form appear below automatically.
+      Click <strong>Show on air</strong> on any clip to put it on the
+      <code>video.html</code> output. You can also paste a Google Drive video
+      link to add one by hand.</p>
+
+    <div class="add-row">
+      <input id="url" type="text" autocomplete="off"
+             placeholder="Paste a Google Drive video link or file id…" />
+      <button id="add" type="button">Add</button>
+    </div>
+    <div id="status" class="msg"></div>
+
+    <div class="live-head">
+      <span>Submissions — click one to put it on air</span>
+      <button id="clear" type="button" class="ghost">Take off air</button>
+    </div>
+    <div id="poll-status" class="poll-status"></div>
+    <div id="grid" class="post-grid"></div>
+  </main>
+
+  <script type="module" src="assets/video-admin.js"></script>
+</body>
+</html>

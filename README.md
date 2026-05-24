@@ -35,6 +35,9 @@ site can't hold on its own.
 | `graphics/map.html`, `graphics/chart.html` | vMix browser-input graphics |
 | `assets/firebase-config.js` | **You fill this in** — Firebase web config |
 | `assets/links.js` | **You fill this in** — vMix social / telestrator links |
+| `video-admin.html` | Video-submissions control (pick a clip to show) |
+| `video.html` | Video-submissions on-air output (vMix browser input) |
+| `assets/video-config.js` | **You fill this in** — published response-sheet CSV URL |
 | `assets/course-data.js` | Generated lap geometry + obstacles |
 | `data/course.kml`, `scripts/build-course.mjs` | Course KML → `course-data.js` |
 | `data/results.json` | Latest feed snapshot, written by the Action |
@@ -83,13 +86,15 @@ change. `data/sample-results-2025.json` is kept as an offline fixture.
      "rules": {
        "control": { ".read": true, ".write": true },
        "rabbits": { ".read": true, ".write": true },
-       "social": { ".read": true, ".write": true }
+       "social": { ".read": true, ".write": true },
+       "video-submissions": { ".read": true, ".write": true }
      }
    }
    ```
    vMix and the graphics read without logging in, so read must be public.
    `control` carries commentator state; `rabbits` carries camera GPS
-   (Larix Tuner poller); `social` carries the curated Instagram posts.
+   (Larix Tuner poller); `social` carries the curated Instagram posts;
+   `video-submissions` carries the video-form entries.
 
 ## Social wall
 
@@ -97,6 +102,39 @@ A curated Instagram wall — no API or Meta app review needed. A crew
 member opens `social-admin.html`, pastes the links of good `#wtm2026`
 posts, and `social.html` (a vMix Web Browser input) cycles through
 them. Only posts that are added show; remove any with the ×.
+
+## Video submissions
+
+Racers upload clips through the **World's Toughest Mudder Video Submission
+Form**. `video-admin.html` lists every submission so a show runner can
+preview them and click **Show on air**; `video.html` (a vMix Web Browser
+input) plays the chosen clip. The control and output sync through Firebase
+just like the social wall — submissions live at `/video-submissions`, the
+on-air pick at `/control/videoSubmission`.
+
+The admin page pulls submissions automatically from the form's response
+sheet. One-time setup:
+
+1. **Link the form to a sheet:** open the form → **Responses** tab → click
+   the green Sheets icon → link or create the response spreadsheet.
+2. **Publish that sheet as CSV:** in the spreadsheet, **File → Share →
+   Publish to web** → choose the responses tab and **Comma-separated values
+   (.csv)** → **Publish**. Copy the published URL (it ends in
+   `/pub?…output=csv`).
+3. **Paste the URL** into `VIDEO_SHEET_CSV_URL` in `assets/video-config.js`
+   (poll interval is `VIDEO_POLL_SECONDS`, default 30s).
+4. **Make the clips playable:** Form-uploaded files are private by default.
+   In Drive, open the form's **"… (File responses)" folder → Share → Anyone
+   with the link → Viewer**, so the embedded player works on the public
+   on-air page.
+5. **Add the Firebase rule** for `video-submissions` (see step 3 of Setup).
+
+The admin page reads the file-upload, name, caption, and timestamp columns
+by header name, so the exact form questions don't have to match a fixed
+schema. A show runner can also paste a Drive video link to add one by hand,
+and the × hides anything you don't want to air. If the browser ever blocks
+the CSV fetch (CORS), say so and the pull can move to a scheduled Action
+instead.
 
 ## Camera GPS (Larix Tuner)
 

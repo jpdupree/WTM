@@ -1,0 +1,54 @@
+/* Builds on social-admin.css; only the video-specific bits live here. */
+
+.live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+button.ghost {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button.ghost:hover { background: var(--panel); filter: none; color: var(--text); }
+
+.poll-status { min-height: 1.1em; margin: 6px 0 2px; font-size: 0.78rem; color: var(--muted); }
+.poll-status.ok { color: #6fe0a0; }
+.poll-status.warn { color: var(--accent); }
+
+.video-card {
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.video-card.active { border-color: #46d17f; }
+
+.video-card .preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border: none;
+  display: block;
+  background: #000;
+}
+
+.video-card .meta { padding: 8px 10px; flex: 1; }
+.video-card .who { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+.video-card .caption {
+  margin-top: 3px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
