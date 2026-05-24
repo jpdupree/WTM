@@ -256,19 +256,48 @@ let activeId = null;
 let polling = false;
 let typeOptionsKey = "";
 
+// Concise card labels. A match returns a short label; null means hide the
+// row entirely; an unmatched question keeps its full text.
+const FIELD_LABELS = [
+  ["email", "Email"],
+  ["what type", "Video Type"],
+  ["type of video", "Video Type"],
+  ["location or obstacle", "Obstacle/Location"],
+  ["obstacle", "Obstacle/Location"],
+  ["description", "Description"],
+  ["excitement", "Excitement Level"],
+  ["landscape or portrait", null], // shown as the Portrait tag instead
+  ["permission to use", null], // rights/consent boilerplate
+  ["confirm that i have the right", null],
+];
+
+function shortLabel(q) {
+  const k = String(q).toLowerCase();
+  for (const [needle, label] of FIELD_LABELS) {
+    if (k.includes(needle)) return label;
+  }
+  return q;
+}
+
+function shortType(v) {
+  const k = String(v || "").toLowerCase();
+  if (k.includes("well wish")) return "Well Wishes";
+  if (k.includes("on-course") || k.includes("course footage") || k.includes("action clip"))
+    return "Course Footage";
+  return String(v || "").trim();
+}
+
 // Keep the Type dropdown in sync with the types present, without clobbering
 // the crew's current selection on every poll.
 function syncTypeOptions(all) {
-  const types = [...new Set(all.map((s) => (s.type || "").trim()).filter(Boolean))].sort();
+  const types = [...new Set(all.map((s) => shortType(s.type)).filter(Boolean))].sort();
   const key = types.join("|");
   if (key === typeOptionsKey) return;
   typeOptionsKey = key;
   const cur = fType.value || "all";
   fType.innerHTML = "";
   fType.appendChild(new Option("All types", "all"));
-  for (const t of types) {
-    fType.appendChild(new Option(t.length > 44 ? t.slice(0, 44) + "…" : t, t));
-  }
+  for (const t of types) fType.appendChild(new Option(t, t));
   fType.value = cur === "all" || types.includes(cur) ? cur : "all";
 }
 
@@ -276,7 +305,7 @@ function matchesFilters(s) {
   const st = fStatus.value;
   if (st === "unviewed" && s.viewed) return false;
   if (st === "viewed" && !s.viewed) return false;
-  if (fType.value !== "all" && (s.type || "") !== fType.value) return false;
+  if (fType.value !== "all" && shortType(s.type) !== fType.value) return false;
   const o = fOrient.value;
   if (o === "portrait" && !s.portrait) return false;
   if (o === "landscape" && s.portrait) return false;
@@ -361,13 +390,15 @@ function render() {
       const dl = document.createElement("dl");
       dl.className = "fields";
       for (const f of s.fields) {
+        const label = shortLabel(f.q);
+        if (label === null) continue;
         const dt = document.createElement("dt");
-        dt.textContent = f.q;
+        dt.textContent = label;
         const dd = document.createElement("dd");
-        dd.textContent = f.a;
+        dd.textContent = label === "Video Type" ? shortType(f.a) : f.a;
         dl.append(dt, dd);
       }
-      meta.appendChild(dl);
+      if (dl.children.length) meta.appendChild(dl);
     } else if (s.caption) {
       const cap = document.createElement("div");
       cap.className = "caption";
