@@ -99,6 +99,51 @@ async function loadClip(fileId) {
   console.log(`  -> loaded into "${vmixInput}": ${name}`);
 }
 
+// One-shot diagnostic: `node scripts/vmix-video-poll.mjs --test <fileId>`
+// Walks each layer (vMix, Drive, local file) and then tries a real load.
+async function selfTest(id) {
+  console.log("== WTM vMix bridge self-test ==");
+  console.log("vmixApi:         ", vmixApi);
+  console.log("vmixInput:       ", vmixInput);
+  console.log("responsesFolder: ", responsesFolder);
+  console.log(
+    "driveApiKey:     ",
+    driveApiKey ? `${driveApiKey.slice(0, 6)}… (${driveApiKey.length} chars)` : "(missing)",
+  );
+  console.log("");
+
+  try {
+    const r = await fetch(vmixApi);
+    console.log(r.ok ? "[ok]   vMix API reachable" : `[FAIL] vMix API HTTP ${r.status}`);
+  } catch (e) {
+    console.log(`[FAIL] vMix API unreachable: ${e.message}`);
+    console.log("       Is the Web Controller enabled, and is the port right?");
+  }
+
+  let name;
+  try {
+    name = await driveName(id);
+    console.log(`[ok]   Drive filename: ${name}`);
+  } catch (e) {
+    console.log(`[FAIL] Drive lookup: ${e.message}`);
+    console.log("       Check the API key, that the Drive API is enabled, and the file is shared.");
+  }
+
+  if (name) {
+    const p = join(responsesFolder, name);
+    console.log(
+      existsSync(p) ? `[ok]   local file exists: ${p}` : `[FAIL] local file not found: ${p}`,
+    );
+  }
+
+  try {
+    await loadClip(id);
+    console.log(`[ok]   load command sent — check the "${vmixInput}" input in vMix`);
+  } catch (e) {
+    console.log(`[FAIL] load: ${e.message}`);
+  }
+}
+
 let lastId = null;
 async function loop() {
   try {
@@ -122,8 +167,18 @@ async function loop() {
   setTimeout(loop, POLL_MS);
 }
 
-console.log(
-  `WTM vMix video bridge started — watching ${DB}/control/videoSubmission ` +
-    `every ${POLL_MS / 1000}s, loading into "${vmixInput}".`,
-);
-loop();
+const testFlag = process.argv.indexOf("--test");
+if (testFlag >= 0) {
+  const id = process.argv[testFlag + 1];
+  if (!id) {
+    console.error("Usage: node scripts/vmix-video-poll.mjs --test <driveFileId>");
+    process.exit(1);
+  }
+  selfTest(id).then(() => process.exit(0));
+} else {
+  console.log(
+    `WTM vMix video bridge started — watching ${DB}/control/videoSubmission ` +
+      `every ${POLL_MS / 1000}s, loading into "${vmixInput}".`,
+  );
+  loop();
+}
