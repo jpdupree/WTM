@@ -44,7 +44,7 @@ if (!configured) {
     "Preview mode — Firebase not configured (see README). Nothing will sync.";
   banner.className = "banner warn";
 } else if (autoPull) {
-  banner.textContent = `Live — auto-pulling submissions every ${VIDEO_POLL_SECONDS}s. The clip you Show goes on air.`;
+  banner.textContent = `Live — auto-pulling submissions every ${VIDEO_POLL_SECONDS}s. The clip you load is sent to vMix.`;
   banner.className = "banner ok";
 } else {
   banner.textContent =
@@ -422,7 +422,7 @@ function render() {
     const showBtn = document.createElement("button");
     showBtn.type = "button";
     showBtn.className = "show-btn" + (isActive ? " on" : "");
-    showBtn.textContent = isActive ? "● On air — take off" : "Show on air";
+    showBtn.textContent = isActive ? "● Loaded — clear" : "Load into vMix";
     showBtn.addEventListener("click", () => {
       if (isActive) writeControl("videoSubmission", null);
       else
