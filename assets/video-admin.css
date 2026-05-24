@@ -98,8 +98,9 @@ button.ghost:hover { background: var(--panel); filter: none; color: var(--text);
 
 .video-card .when { margin-top: 2px; font-size: 0.72rem; color: var(--muted); }
 
-.video-card .fields { margin: 8px 0 0; display: grid; gap: 6px; }
+.video-card .fields { margin: 8px 0 0; }
 .video-card .fields dt {
+  margin-top: 9px;
   font-size: 0.66rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -107,4 +108,5 @@ button.ghost:hover { background: var(--panel); filter: none; color: var(--text);
   color: var(--muted);
   line-height: 1.2;
 }
-.video-card .fields dd { margin: 1px 0 0; font-size: 0.85rem; color: var(--text); line-height: 1.35; }
+.video-card .fields dt:first-child { margin-top: 0; }
+.video-card .fields dd { margin: 0; font-size: 0.85rem; color: var(--text); line-height: 1.3; }
