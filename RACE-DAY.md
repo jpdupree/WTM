@@ -1,7 +1,8 @@
 # WTM 2026 — Race Day Runbook
 
-Step-by-step to bring the dashboard, graphics, and camera GPS live. The
-"Before race day" section is pre-event prep; sections 1–6 are race day.
+Step-by-step to bring the dashboard, graphics, camera GPS, and video
+submissions live. The **Before race day** sections are pre-event prep;
+sections 1–7 are race day.
 
 ## Before race day — move the pollers to the AWS machine
 
@@ -27,6 +28,72 @@ pages — is cloud-hosted and needs nothing on that machine.)
       them (Windows scheduled task at logon, or NSSM as a service). Ask
       Claude to set this up if needed.
 - [ ] Stop the test pollers on the personal machine.
+
+## Before race day — video submissions
+
+The submission wall (`video-admin.html` curator → `video.html` on-air output
++ a vMix bridge that loads the local clip into a real input) needs four
+things in place: a Firebase rule, two Drive shares, and a small poller on
+the vMix machine.
+
+- [ ] Firebase Realtime DB rules include
+      `"video-submissions": { ".read": true, ".write": true }` (alongside
+      `control`, `rabbits`, `social`, `results`).
+- [ ] The form's response sheet is shared **Anyone with the link → Viewer**,
+      and `VIDEO_SHEET` in `assets/video-config.js` points at it.
+- [ ] The form's **"… (File responses)" folder** in Drive is shared
+      **Anyone with the link → Viewer** so the clips can play on air.
+- [ ] On the vMix PC, Drive-for-Desktop is signed in and that folder shows
+      under `G:\My Drive\…`. Right-click the folder → **Available offline**
+      so the first cut doesn't stutter while a file materialises.
+- [ ] On the vMix PC: `git pull`, then copy
+      `scripts/vmix-config.example.json` to `scripts/vmix-config.json` and
+      fill in `driveApiKey`, the `responsesFolder` path, `vmixApi`, and
+      `vmixInput`.
+- [ ] In vMix: add an empty **List / VideoList** input named exactly
+      `Submission Clip` (or whatever you set `vmixInput` to). Web Controller
+      enabled; note the port (default 8088).
+- [ ] Test the bridge: `node scripts/vmix-video-poll.mjs --test <fileId>` —
+      expect four `[ok]` lines (vMix reachable, Drive filename, local file
+      exists, load command sent).
+- [ ] Auto-start the bridge alongside the other pollers.
+
+## Before race day — submission URL & QR
+
+- [ ] **`theocrreport.com/submit`** redirects to the form (Pretty Links 301
+      on WordPress, or LightningBase NGINX redirect — `.htaccess` doesn't
+      work on LB). Test from a private window.
+- [ ] Scan the submit **QR code** from a phone — must land on the form.
+      Drop the URL + QR onto a broadcast slate / lower-third, race emails,
+      and on-site signage.
+
+## Before race day — commentator mute button
+
+- [ ] Wire the single illuminated mute button so its LED tracks vMix's
+      **actual mute state**, not just the press. Central Control toggles
+      vMix `AudioOff/AudioOn` on the commentator's input/bus; the LED is
+      bound to that state.
+- [ ] Convention: **lit red = muted** ("they can't hear you"). Bench-test
+      20+ presses, then mute from the vMix UI and confirm the LED follows.
+
+## Before race day — dress rehearsal (T-1)
+
+End-to-end run of the full broadcast stack on the production machine.
+
+- [ ] All three pollers running and logging cleanly:
+      `results-poll.mjs`, `rabbit-poll.mjs`, `vmix-video-poll.mjs`. Each
+      set to relaunch on reboot.
+- [ ] Submit a test clip via `theocrreport.com/submit` → appears on
+      `video-admin.html` within ~30s → **Load into vMix** → clip lands in
+      the `Submission Clip` input → cut to it on air → confirm 9:16
+      framing and audio path.
+- [ ] Mark that test submission **Viewed** and confirm the unviewed badge
+      on `commentator.html` ticks down.
+- [ ] Press the mute button, then also toggle mute from the vMix UI —
+      the LED tracks state both directions.
+- [ ] Open every page in a **private window** (the GitHub Pages CDN can
+      lag): leaderboard, commentator, social-admin, video-admin, map
+      graphic, chart graphic.
 
 ## Production machine — software to start
 
@@ -84,6 +151,11 @@ feed automatically the moment it starts publishing.
 - [ ] Web Browser input → `…/graphics/chart.html`
 - [ ] Web Browser input → `…/social.html` (curated Instagram wall)
 - [ ] A crew member curates the wall from `…/social-admin.html`
+- [ ] Web Browser input → `…/video.html` (the picked video submission, 9:16)
+- [ ] **List / VideoList** input named `Submission Clip` — the vMix bridge
+      loads the chosen clip into this; cut to it on air.
+- [ ] A crew member curates submissions from `…/video-admin.html`;
+      `commentator.html` shows a red badge with the unviewed count.
 
 ## 4. Live results poller
 
@@ -122,7 +194,28 @@ whole event.
 > `apiKey` into `scripts/larix-credentials.json`, re-whitelist the
 > machine's IP, and redo the per-device setup above.
 
-## 6. Troubleshooting
+## 6. vMix video bridge
+
+`vmix-video-poll.mjs` runs on the vMix machine alongside the other
+pollers. When the crew clicks **Load into vMix** on `video-admin.html` it
+resolves the clip's Drive filename and loads the local Drive-for-Desktop
+copy into the `Submission Clip` VideoList input — you cut to that input.
+
+- [ ] Machine has Node 18+ and a copy of this repo (`git pull` for latest).
+- [ ] `scripts/vmix-config.json` exists with `driveApiKey`,
+      `responsesFolder`, `vmixApi`, and `vmixInput` (copy from
+      `vmix-config.example.json`).
+- [ ] In vMix, the `Submission Clip` **List / VideoList** input exists and
+      is empty; the Web Controller is enabled on the port in `vmixApi`.
+- [ ] Start the bridge: `node scripts/vmix-video-poll.mjs` — leave the
+      window open. Lines like `loaded into "Submission Clip": <name>` mean
+      it's live.
+
+> If a clip won't load, run
+> `node scripts/vmix-video-poll.mjs --test <fileId>` for a per-layer
+> ok/FAIL readout (vMix reachable, Drive filename, local file, load).
+
+## 7. Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
@@ -133,3 +226,10 @@ whole event.
 | Camera missing from a map | Confirm the poller window shows a `+` line for it; check the map's Rabbits toggle is on. |
 | Pages show old content | Hard-refresh or use a private window; the GitHub Pages CDN can lag 1–2 min after a push. |
 | Commentator banner is orange | Firebase not connected — check `assets/firebase-config.js`. |
+| `video-admin.html` shows "Couldn't read the sheet" | The browser blocked the gviz fetch (CORS) or the sheet isn't shared. Re-check sharing, or set `VIDEO_SHEET_CSV_URL` to a `…/pub?…output=csv` from File → Share → Publish to web — it overrides `VIDEO_SHEET`. |
+| New submissions aren't appearing on `video-admin.html` | Check the poll-status line under the filter row, the sheet's share setting, and the `video-submissions` Firebase rule. |
+| Bridge logs `HTTP 403 — …` | Drive API isn't enabled on the key's project, or the key has an API/application restriction blocking it. Enable Drive API and set restrictions to allow it. |
+| Bridge logs `fetch failed` | vMix Web Controller is off, or `vmixApi` host/port is wrong. Open `http://<host>:<port>/api/` in a browser on the vMix PC — it should return XML. |
+| Bridge logs `local file not found` | `responsesFolder` doesn't match, or Drive-for-Desktop hasn't synced the file yet. Verify the path; if the file has the same name as an earlier one, Drive may have suffixed it `(1)`. |
+| First clip stutters on cut | The folder is in Drive-for-Desktop streaming mode. Right-click the `(File responses)` folder → **Available offline**. |
+| Mute LED stuck or out of sync with vMix | Central Control's feedback binding has dropped — restart Central Control's connection to vMix, then re-toggle mute once to resync. |
