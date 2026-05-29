@@ -95,8 +95,8 @@ const FIELD_LABELS = [
   ["previous tough mudder events", "Past TM Events"],
   ["previous world's toughest mudder events", "Past WTM Events"],
   ["previous mileage achievement", "Previous WTM Mileage"],
+  ["confidence level", "2026 Goal Confidence"], // checked before "mileage goal" so the confidence question doesn't match the goal needle first
   ["mileage goal", "2026 Goal"],
-  ["confidence level", "2026 Goal Confidence"],
   ["ocr/endurance race history", "OCR History"],
   ["last major obstacle course race", "Last Major Race"],
   ["race photo", null], // rendered as a separate link
