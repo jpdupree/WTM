@@ -42,6 +42,7 @@ site can't hold on its own.
 | `assets/course-data.js` | Generated lap geometry + obstacles |
 | `data/course.kml`, `scripts/build-course.mjs` | Course KML → `course-data.js` |
 | `data/results.json` | Latest feed snapshot, written by the Action |
+| `data/bios.csv` | Pre-event participant survey export — drives the solo-stats bio block |
 | `scripts/fetch-results.mjs` | Fetches the feeds |
 | `.github/workflows/fetch-results.yml` | Scheduled fetch + commit |
 
@@ -226,9 +227,26 @@ single `?bib=123`) to the URL.
 
 - **Solo Stats** — search by name or bib; the pick drives the vMix title
   and refreshes itself as the race updates. *Clear* blanks the graphic.
+  Underneath the stats, a **"From the athlete"** block shows the
+  participant's pre-event survey answers (country, goal, fun fact,
+  favorite/toughest obstacle, photo link, etc.) so commentators have
+  something to talk about.
 - **News Ticker** — one item per line; *Update Ticker* pushes to the bar.
 - **Prediction** — pick an athlete and mileage goal; previews the chart
   and drives the map + chart graphics.
+
+### Refreshing the bio data
+
+The bio block is fed by `data/bios.csv`, an export of the pre-event
+participant survey. To update it:
+
+1. Open the form's response sheet → **File → Download → Comma-separated
+   values (.csv)**.
+2. Replace `data/bios.csv` with the new file (keep that exact filename).
+3. Commit and push. The commentator page picks it up on next load.
+
+Names are matched on **Full Name**, tolerating middle names ("Anne Clifford"
+↔ "Anne Carolyn Clifford") and common nicknames ("Chris" ↔ "Christopher").
 
 ## Course data
 

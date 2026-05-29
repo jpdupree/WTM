@@ -10,6 +10,9 @@ import { project, drawChart, chartLegend, markDim, secToHms, pitStats, pitFmt, S
 import { createCourseMap } from "./coursemap.js";
 import { rabbitList } from "./rabbits.js";
 import { VMIX_LINKS } from "./links.js";
+import { loadBios, findBio, renderBio } from "./bios.js";
+
+const biosPromise = loadBios();
 
 const REFRESH_MS = 30_000;
 
@@ -188,6 +191,16 @@ function pushSolo() {
     grid.appendChild(cell);
   }
   soloLive.appendChild(grid);
+
+  // Append the pre-event bio under the stat-grid once the CSV is loaded.
+  // Captured bib guards against late resolution after the crew clears or
+  // picks someone else.
+  const targetBib = soloBib;
+  biosPromise.then((bios) => {
+    if (soloBib !== targetBib) return;
+    const bio = findBio(r.Name, bios);
+    if (bio) renderBio(bio, soloLive);
+  });
 
   if (configured) {
     // Written as a one-row array so vMix's JSON Data Source reads it

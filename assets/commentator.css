@@ -153,6 +153,41 @@ button.ghost.on { background: #06b6d4; color: #04222a; border-color: #06b6d4; }
 .live-panel .muted { color: var(--muted); }
 .live-panel > div { margin: 2px 0; }
 
+.bio { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.bio-head {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.bio-fields dt {
+  margin-top: 9px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.bio-fields dt:first-child { margin-top: 0; }
+.bio-fields dd {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+.bio-photo {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.bio-photo:hover { text-decoration: underline; }
+
 .chart {
   width: 100%;
   height: 280px;
