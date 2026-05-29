@@ -96,7 +96,7 @@ const FIELD_LABELS = [
   ["previous world's toughest mudder events", "Past WTM Events"],
   ["previous mileage achievement", "Previous WTM Mileage"],
   ["mileage goal", "2026 Goal"],
-  ["confidence level", "Confidence (1-10)"],
+  ["confidence level", "2026 Goal Confidence"],
   ["ocr/endurance race history", "OCR History"],
   ["last major obstacle course race", "Last Major Race"],
   ["race photo", null], // rendered as a separate link
