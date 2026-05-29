@@ -47,12 +47,6 @@ export function findBio(name, bios) {
 }
 
 export function renderBio(bio, container) {
-  const sec = document.createElement("div");
-  sec.className = "bio";
-  const head = document.createElement("div");
-  head.className = "bio-head";
-  head.textContent = "From the athlete";
-  sec.appendChild(head);
   const dl = document.createElement("dl");
   dl.className = "bio-fields";
   for (const { q, a } of bio.fields) {
@@ -62,7 +56,7 @@ export function renderBio(bio, container) {
     dd.textContent = a;
     dl.append(dt, dd);
   }
-  sec.appendChild(dl);
+  container.appendChild(dl);
   if (bio.photoUrl) {
     const link = document.createElement("a");
     link.className = "bio-photo";
@@ -70,9 +64,8 @@ export function renderBio(bio, container) {
     link.target = "_blank";
     link.rel = "noopener";
     link.textContent = "Photo →";
-    sec.appendChild(link);
+    container.appendChild(link);
   }
-  container.appendChild(sec);
 }
 
 // --- internals -------------------------------------------------------

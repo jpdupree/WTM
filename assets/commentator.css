@@ -153,14 +153,6 @@ button.ghost.on { background: #06b6d4; color: #04222a; border-color: #06b6d4; }
 .live-panel .muted { color: var(--muted); }
 .live-panel > div { margin: 2px 0; }
 
-.bio { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
-.bio-head {
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
 .bio-fields dt {
   margin-top: 9px;
   font-size: 0.66rem;

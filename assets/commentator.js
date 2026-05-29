@@ -132,6 +132,7 @@ function topTen(sliceKey) {
 const soloSearch = $("solo-search");
 const soloResults = $("solo-results");
 const soloLive = $("solo-live");
+const soloBio = $("solo-bio");
 
 soloSearch.addEventListener("input", () =>
   renderSearch(soloSearch.value, soloResults, (r) => {
@@ -146,6 +147,8 @@ $("solo-clear").addEventListener("click", () => {
   soloBib = null;
   soloLive.textContent = "Nothing selected.";
   soloLive.className = "live-panel";
+  soloBio.innerHTML = "";
+  soloBio.textContent = "Nothing selected.";
   if (configured) writeControl("athlete", null).catch(() => {});
 });
 
@@ -192,14 +195,17 @@ function pushSolo() {
   }
   soloLive.appendChild(grid);
 
-  // Append the pre-event bio under the stat-grid once the CSV is loaded.
-  // Captured bib guards against late resolution after the crew clears or
-  // picks someone else.
+  // Pre-event bio renders into its own panel below. Captured bib guards
+  // against the crew clearing or picking someone else before the CSV loads.
+  soloBio.innerHTML = "";
+  soloBio.textContent = "Loading…";
   const targetBib = soloBib;
   biosPromise.then((bios) => {
     if (soloBib !== targetBib) return;
     const bio = findBio(r.Name, bios);
-    if (bio) renderBio(bio, soloLive);
+    soloBio.innerHTML = "";
+    if (bio) renderBio(bio, soloBio);
+    else soloBio.textContent = "No pre-event survey response from this athlete.";
   });
 
   if (configured) {
