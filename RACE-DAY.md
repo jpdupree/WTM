@@ -67,6 +67,22 @@ the vMix machine.
       Drop the URL + QR onto a broadcast slate / lower-third, race emails,
       and on-site signage.
 
+## Before race day — athlete bios
+
+The solo-stats "From the athlete" block is fed by `data/bios.csv` (an export
+of the pre-event participant survey), matched to athletes by **Full Name**.
+
+- [ ] When the final 2026 entrant list + survey responses are in, export the
+      response sheet to CSV and replace `data/bios.csv` (keep the filename),
+      then commit and push.
+- [ ] **Reconcile names against the live athlete feed** — once
+      `data/results.json` holds the real 2026 field, have Claude cross-check
+      every bio name against every athlete name and report:
+      - bios that match **no** athlete (typo, withdrawn, or name format diff)
+      - bios that match **more than one** athlete (ambiguous — needs a bib)
+      Fix at the source (or add a bib column to the survey) so every bio
+      lands on exactly one athlete.
+
 ## Before race day — commentator mute button
 
 - [ ] Wire the single illuminated mute button so its LED tracks vMix's
