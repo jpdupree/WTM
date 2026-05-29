@@ -66,6 +66,8 @@ the vMix machine.
 - [ ] Scan the submit **QR code** from a phone — must land on the form.
       Drop the URL + QR onto a broadcast slate / lower-third, race emails,
       and on-site signage.
+- [ ] Submit overlay graphic exists as a vMix title — confirm it's in the
+      show project and looks right against the video.
 
 ## Before race day — athlete bios
 
@@ -85,12 +87,14 @@ of the pre-event participant survey), matched to athletes by **Full Name**.
 
 ## Before race day — commentator mute button
 
-- [ ] Wire the single illuminated mute button so its LED tracks vMix's
-      **actual mute state**, not just the press. Central Control toggles
-      vMix `AudioOff/AudioOn` on the commentator's input/bus; the LED is
-      bound to that state.
-- [ ] Convention: **lit red = muted** ("they can't hear you"). Bench-test
-      20+ presses, then mute from the vMix UI and confirm the LED follows.
+A dedicated Stream Deck key (driven by Central Control) handles self-mute.
+Central Control toggles vMix `AudioOff/AudioOn` on the commentator's
+input/bus and binds the key's icon/colour to the **actual mute state** —
+not just the press — so it self-corrects if mute changes elsewhere.
+
+- [ ] Map the key in Central Control and bench-test from both directions:
+      press the key, then mute from the vMix UI — the key must follow.
+- [ ] Convention: **red icon = muted** ("they can't hear you").
 
 ## Before race day — dress rehearsal (T-1)
 
