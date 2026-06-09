@@ -99,13 +99,13 @@ thead th {
 tbody td { padding: 9px 12px; border-top: 1px solid var(--line); font-size: 0.92rem; }
 tbody tr:hover { background: var(--panel-2); }
 
-.rank { font-weight: 700; text-align: center; width: 48px; }
+.rank { font-weight: 700; text-align: center; width: 1%; white-space: nowrap; }
 tr.r1 .rank { color: var(--gold); }
 tr.r2 .rank { color: var(--silver); }
 tr.r3 .rank { color: var(--bronze); }
 
-.name { font-weight: 600; width: 100%; }
-.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.name { font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
 .muted { color: var(--muted); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
