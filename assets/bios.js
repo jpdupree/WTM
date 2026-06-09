@@ -46,8 +46,8 @@ export function findBio(name, bios) {
   return null;
 }
 
-export function renderBio(bio, container) {
-  if (bio.photoUrl) {
+export function renderBio(bio, container, opts = {}) {
+  if (!opts.skipPhoto && bio.photoUrl) {
     const fileId = (bio.photoUrl.match(/(?:\/d\/|[?&]id=)([-\w]{10,})/) || [])[1];
     if (fileId) {
       const link = document.createElement("a");

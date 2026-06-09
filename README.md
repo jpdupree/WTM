@@ -172,6 +172,31 @@ Drive API (Drive-for-Desktop mirrors the exact name). If two uploads share a
 filename, Drive may suffix the local copy (e.g. ` (1)`), which would need a
 manual fix — rare at 100 MB clip sizes.
 
+## Athlete race photos
+
+`commentator.html` shows the athlete's race photo at the top of the
+"From the athlete" panel — keyed by **bib**, so it shows up even for
+racers who didn't fill in the pre-event survey. The photo comes from a
+Drive folder whose files start with the bib number (e.g. `1136.jpg`),
+mapped via `data/athlete-photos.json`.
+
+One-time setup:
+
+1. **Share the folder** "Anyone with the link → Viewer" — required so the
+   browser can fetch thumbnails without authentication.
+2. **Reuse your Drive API key** from the vMix-bridge setup (the same key
+   works; just make sure the Drive API is enabled on its project).
+3. **Config:** copy `scripts/photos-config.example.json` to
+   `scripts/photos-config.json` (git-ignored), set `driveApiKey` and
+   `folderId` (the part after `/folders/` in the Drive URL).
+4. **Generate / refresh the manifest:**
+   `node scripts/build-athlete-photos.mjs` — outputs
+   `data/athlete-photos.json`. Re-run any time photos are added or
+   replaced, then commit and push.
+
+If a bib has no entry in the manifest, the commentator page falls back to
+the survey-uploaded photo (if any) and renders nothing if neither exists.
+
 ## Camera GPS (Larix Tuner)
 
 Camera operators stream with Larix Broadcaster; their GPS is read from

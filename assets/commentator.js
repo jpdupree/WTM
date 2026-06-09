@@ -11,6 +11,7 @@ import { createCourseMap } from "./coursemap.js";
 import { rabbitList } from "./rabbits.js";
 import { VMIX_LINKS } from "./links.js";
 import { loadBios, findBio, renderBio } from "./bios.js";
+import { photoSrcForBib } from "./photos.js";
 
 const biosPromise = loadBios();
 
@@ -197,15 +198,32 @@ function pushSolo() {
 
   // Pre-event bio renders into its own panel below. Captured bib guards
   // against the crew clearing or picking someone else before the CSV loads.
+  // Race photo is keyed by bib (athlete-photos.json) so it shows up even
+  // when the athlete didn't fill in the survey; survey photo is the fallback.
   soloBio.innerHTML = "";
   soloBio.textContent = "Loading…";
   const targetBib = soloBib;
-  biosPromise.then((bios) => {
+  Promise.all([biosPromise, photoSrcForBib(r.Bib)]).then(([bios, photoSrc]) => {
     if (soloBib !== targetBib) return;
     const bio = findBio(r.Name, bios);
     soloBio.innerHTML = "";
-    if (bio) renderBio(bio, soloBio);
-    else soloBio.textContent = "No pre-event survey response from this athlete.";
+    if (photoSrc) {
+      const link = document.createElement("a");
+      link.className = "bio-photo";
+      link.href = photoSrc;
+      link.target = "_blank";
+      link.rel = "noopener";
+      const img = document.createElement("img");
+      img.className = "bio-photo-img";
+      img.alt = (r.Name || "Athlete") + " — race photo";
+      img.loading = "lazy";
+      img.src = photoSrc;
+      img.onerror = () => { link.style.display = "none"; };
+      link.appendChild(img);
+      soloBio.appendChild(link);
+    }
+    if (bio) renderBio(bio, soloBio, { skipPhoto: Boolean(photoSrc) });
+    else if (!photoSrc) soloBio.textContent = "No pre-event survey response from this athlete.";
   });
 
   if (configured) {
