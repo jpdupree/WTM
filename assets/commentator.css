@@ -171,14 +171,20 @@ button.ghost.on { background: #06b6d4; color: #04222a; border-color: #06b6d4; }
   white-space: pre-wrap;
 }
 .bio-photo {
-  display: inline-block;
-  margin-top: 10px;
-  color: var(--accent-2);
-  font-size: 0.85rem;
-  font-weight: 600;
+  display: block;
+  margin-bottom: 12px;
   text-decoration: none;
 }
-.bio-photo:hover { text-decoration: underline; }
+.bio-photo-img {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+.bio-photo:hover .bio-photo-img { border-color: var(--accent-2); }
 
 .chart {
   width: 100%;

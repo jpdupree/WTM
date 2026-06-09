@@ -238,7 +238,7 @@ function buildTable(rows) {
   for (const c of cols) {
     const th = document.createElement("th");
     th.textContent = c.label;
-    if (c.cls.includes("hide-sm")) th.className = "hide-sm";
+    th.className = c.cls;
     htr.appendChild(th);
   }
   thead.appendChild(htr);
@@ -480,7 +480,7 @@ function buildSortableTable(rows) {
   const htr = document.createElement("tr");
   for (const c of OVERALL_COLS) {
     const th = document.createElement("th");
-    th.className = "sortable" + (c.cls.includes("hide-sm") ? " hide-sm" : "");
+    th.className = "sortable " + c.cls;
     th.textContent = c.label;
     if (state.sort.key === c.key) {
       const arrow = document.createElement("span");
