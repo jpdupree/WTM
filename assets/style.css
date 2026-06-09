@@ -104,8 +104,8 @@ tr.r1 .rank { color: var(--gold); }
 tr.r2 .rank { color: var(--silver); }
 tr.r3 .rank { color: var(--bronze); }
 
-.name { font-weight: 600; }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
+.name { font-weight: 600; width: 100%; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .muted { color: var(--muted); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
@@ -228,4 +228,7 @@ footer { padding: 20px 24px; color: var(--muted); font-size: 0.8rem; text-align:
   header { flex-direction: column; align-items: flex-start; }
   main { padding: 16px; }
   .hide-sm { display: none; }
+  /* Squeeze numeric columns so NAME has the most room for long names. */
+  thead th.num, tbody td.num { padding-left: 6px; padding-right: 6px; }
+  thead th.rank, tbody td.rank { padding-left: 4px; padding-right: 4px; }
 }
