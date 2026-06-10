@@ -172,7 +172,7 @@ button.ghost.on { background: #06b6d4; color: #04222a; border-color: #06b6d4; }
 }
 .bio-photo {
   display: block;
-  margin-bottom: 12px;
+  margin-top: 12px;
   text-decoration: none;
 }
 .bio-photo-img {
