@@ -207,6 +207,8 @@ function pushSolo() {
     if (soloBib !== targetBib) return;
     const bio = findBio(r.Name, bios);
     soloBio.innerHTML = "";
+    if (bio) renderBio(bio, soloBio, { skipPhoto: Boolean(photoSrc) });
+    else if (!photoSrc) soloBio.textContent = "No pre-event survey response from this athlete.";
     if (photoSrc) {
       const link = document.createElement("a");
       link.className = "bio-photo";
@@ -222,8 +224,6 @@ function pushSolo() {
       link.appendChild(img);
       soloBio.appendChild(link);
     }
-    if (bio) renderBio(bio, soloBio, { skipPhoto: Boolean(photoSrc) });
-    else if (!photoSrc) soloBio.textContent = "No pre-event survey response from this athlete.";
   });
 
   if (configured) {

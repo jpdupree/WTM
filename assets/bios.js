@@ -47,6 +47,16 @@ export function findBio(name, bios) {
 }
 
 export function renderBio(bio, container, opts = {}) {
+  const dl = document.createElement("dl");
+  dl.className = "bio-fields";
+  for (const { q, a } of bio.fields) {
+    const dt = document.createElement("dt");
+    dt.textContent = q;
+    const dd = document.createElement("dd");
+    dd.textContent = a;
+    dl.append(dt, dd);
+  }
+  container.appendChild(dl);
   if (!opts.skipPhoto && bio.photoUrl) {
     const fileId = (bio.photoUrl.match(/(?:\/d\/|[?&]id=)([-\w]{10,})/) || [])[1];
     if (fileId) {
@@ -65,16 +75,6 @@ export function renderBio(bio, container, opts = {}) {
       container.appendChild(link);
     }
   }
-  const dl = document.createElement("dl");
-  dl.className = "bio-fields";
-  for (const { q, a } of bio.fields) {
-    const dt = document.createElement("dt");
-    dt.textContent = q;
-    const dd = document.createElement("dd");
-    dd.textContent = a;
-    dl.append(dt, dd);
-  }
-  container.appendChild(dl);
 }
 
 // --- internals -------------------------------------------------------
