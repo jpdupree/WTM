@@ -108,8 +108,7 @@
     function rowLabel(i,mode){
       const t=thr[i];
       if(mode==='cum') return (t===75?'<b>≥75</b>':'≥'+t);
-      if(i===0) return t+'+';                       // 115+
-      return `${t}–${thr[i-1]-1}`;                  // e.g. 75–79
+      return i===0 ? (t+'+') : (''+t);   // bands: exact 5-mile marks (laps are 5mi); 115+ open top
     }
     function grid(title,data,base,mode){
       let h=`<div class="hmtitle">${title}</div><div class="hmscroll"><div class="hmgrid" style="grid-template-columns:60px repeat(${years.length},1fr)">`;
