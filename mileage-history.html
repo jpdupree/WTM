@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WTM — Mileage History</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <style>
+    main.history { padding: 20px 24px 40px; max-width: 1100px; margin: 0 auto; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+            padding: 18px 20px; margin-bottom: 24px; }
+    .card h2 { font-size: 1.1rem; margin-bottom: 4px; }
+    .card .note { color: var(--muted); font-size: 0.8rem; margin-bottom: 14px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.8rem; color: var(--muted);
+              margin-bottom: 10px; }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .swatch { width: 14px; height: 3px; display: inline-block; }
+    .chartwrap { position: relative; width: 100%; height: 320px; }
+    .hmtitle { font-size: 0.95rem; font-weight: 600; margin: 14px 0 8px; }
+    .hmscroll { overflow-x: auto; }
+    .hmgrid { display: grid; gap: 3px; font-size: 0.72rem; min-width: 640px; }
+    .hmgrid .yr { text-align: center; color: var(--muted); }
+    .hmgrid .lab { text-align: right; padding-right: 6px; color: var(--muted); line-height: 26px; }
+    .hmgrid .cell { height: 26px; display: flex; align-items: center; justify-content: center;
+                    border-radius: 4px; }
+    .foot { color: var(--muted); font-size: 0.75rem; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>WTM Mileage History</h1>
+      <p class="sub">24-hour distances · 2011–2025</p>
+    </div>
+    <div class="status">
+      <a class="link" href="index.html">Leaderboards →</a>
+    </div>
+  </header>
+
+  <main class="history">
+    <div class="card">
+      <h2>Average miles per athlete</h2>
+      <p class="note">Mean distance covered in 24 hours, men vs women.</p>
+      <div class="legend">
+        <span><span class="swatch" style="background:#4ea3ff"></span>Men</span>
+        <span><span class="swatch" style="background:#f06595"></span>Women</span>
+        <span>* 2017–2018: top-10 only in source — averages inflated</span>
+      </div>
+      <div class="chartwrap">
+        <canvas id="avgc" role="img"
+          aria-label="Line chart of average WTM miles per year for men and women"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Finishers reaching each mile mark</h2>
+      <p class="note">Count of athletes hitting each distance, per year. Higher marks are subsets of lower ones.</p>
+      <div id="hm"></div>
+      <p class="foot">* 2017–2018 are top-10 only (full fields not in source) — true counts are higher. No WTM held in 2020.</p>
+    </div>
+  </main>
+
+  <footer>
+    <p>The OCR Report · mileage data via RaceResult + WTM history.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script>
+    const years=[2011,2012,2013,2014,2015,2016,2017,2018,2019,2021,2022,2023,2024,2025];
+    const ylab=years.map(y=>(y===2017||y===2018)?(y+"*"):(""+y));
+    const avgM=[13.9,30.6,44.7,35.7,35.9,45.3,89.0,85.5,42.9,56.3,49.6,43.0,49.2,47.4];
+    const avgF=[15.2,26.0,41.7,32.5,28.5,40.4,76.5,64.5,36.5,53.2,46.9,38.1,45.3,47.4];
+    const partial={2017:1,2018:1};
+    const thr=[115,110,105,100,95,90,85,80,75];
+    const men={2011:[0,0,0,0,0,0,0,0,0],2012:[0,0,0,0,0,1,1,3,3],2013:[0,0,0,1,4,6,10,15,36],2014:[0,0,0,0,2,3,4,7,16],2015:[0,0,0,0,2,3,5,12,23],2016:[0,0,1,4,9,11,14,22,58],2017:[0,1,2,2,3,4,6,10,10],2018:[0,0,0,2,2,3,6,8,10],2019:[0,0,1,4,5,7,9,19,47],2021:[1,2,3,6,6,7,11,16,47],2022:[0,0,2,5,7,10,14,19,44],2023:[0,0,1,5,5,8,11,19,36],2024:[1,2,3,9,14,16,22,35,87],2025:[0,1,3,4,5,7,12,23,55]};
+    const women={2011:[0,0,0,0,0,0,0,0,0],2012:[0,0,0,0,0,1,1,2,2],2013:[0,0,0,0,0,0,1,1,3],2014:[0,0,0,0,0,0,0,0,1],2015:[0,0,0,0,0,0,0,0,1],2016:[0,0,0,0,0,0,1,4,7],2017:[0,0,0,0,0,1,2,5,7],2018:[0,0,0,0,0,0,0,0,2],2019:[0,0,0,0,0,0,0,1,3],2021:[0,0,0,0,0,1,3,5,9],2022:[0,0,0,1,1,1,3,4,7],2023:[0,0,0,0,0,2,3,6,6],2024:[0,0,0,0,1,2,4,7,14],2025:[0,0,0,0,1,1,3,8,11]};
+
+    new Chart(document.getElementById('avgc'),{type:'line',
+      data:{labels:ylab,datasets:[
+        {label:'Men',data:avgM,borderColor:'#4ea3ff',backgroundColor:'#4ea3ff',pointRadius:3,tension:.25,borderWidth:2},
+        {label:'Women',data:avgF,borderColor:'#f06595',backgroundColor:'#f06595',pointRadius:3,tension:.25,borderWidth:2,borderDash:[5,4]}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+' mi'}}},
+        scales:{x:{ticks:{color:'#8b9aa8',autoSkip:false,maxRotation:45},grid:{color:'#2a3540'}},
+          y:{title:{display:true,text:'avg miles in 24h',color:'#8b9aa8'},ticks:{color:'#8b9aa8'},grid:{color:'#2a3540'},suggestedMin:0}}}});
+
+    function shade(v,base){
+      if(!v) return ['transparent','var(--muted)'];
+      const a=v>=21?1:v>=11?.74:v>=6?.52:v>=3?.34:.2;
+      const fg=a>=.52?'#0c1014':(base==='b'?'#cfe3ff':'#ffd4e1');
+      const rgb=base==='b'?'78,163,255':'240,101,149';
+      return [`rgba(${rgb},${a})`,fg];
+    }
+    function grid(title,data,base){
+      let h=`<div class="hmtitle">${title}</div><div class="hmscroll"><div class="hmgrid" style="grid-template-columns:48px repeat(${years.length},1fr)">`;
+      h+=`<div></div>`+years.map(y=>`<div class="yr">'${(""+y).slice(2)}${partial[y]?'*':''}</div>`).join('');
+      thr.forEach((t,ri)=>{
+        h+=`<div class="lab">${t===75?'<b>≥75</b>':'≥'+t}</div>`;
+        years.forEach(y=>{const v=data[y][ri];const[bg,fg]=shade(v,base);
+          h+=`<div class="cell" title="${v} reached ≥${t} mi in ${y}" style="background:${bg};color:${fg};font-weight:${v>=11?600:400}">${v||''}</div>`;});
+      });
+      return h+`</div></div>`;
+    }
+    document.getElementById('hm').innerHTML=
+      grid('Men',men,'b')+`<div style="height:16px"></div>`+grid('Women',women,'p');
+  </script>
+</body>
+</html>
