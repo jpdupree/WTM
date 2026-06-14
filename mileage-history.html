@@ -16,6 +16,12 @@
     .legend span { display: flex; align-items: center; gap: 6px; }
     .swatch { width: 14px; height: 3px; display: inline-block; }
     .chartwrap { position: relative; width: 100%; height: 320px; }
+    .toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px;
+              overflow: hidden; margin-bottom: 14px; }
+    .toggle button { background: var(--panel-2); color: var(--muted); border: none;
+              padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border-radius: 0; }
+    .toggle button.active { background: var(--accent); color: #1a1207; }
+    .toggle button:hover:not(.active) { color: var(--text); }
     .hmtitle { font-size: 0.95rem; font-weight: 600; margin: 14px 0 8px; }
     .hmscroll { overflow-x: auto; }
     .hmgrid { display: grid; gap: 3px; font-size: 0.72rem; min-width: 640px; }
@@ -55,7 +61,11 @@
 
     <div class="card">
       <h2>Finishers reaching each mile mark</h2>
-      <p class="note">Count of athletes hitting each distance, per year. Higher marks are subsets of lower ones.</p>
+      <p class="note" id="hmnote">Cumulative: counts everyone who reached at least that distance (higher marks are subsets of lower ones).</p>
+      <div class="toggle" id="mtoggle">
+        <button type="button" data-mode="cum" class="active">Cumulative (≥)</button>
+        <button type="button" data-mode="band">Bands</button>
+      </div>
       <div id="hm"></div>
       <p class="foot">* 2017–2018 are top-10 only (full fields not in source) — true counts are higher. No WTM held in 2020.</p>
     </div>
@@ -92,18 +102,39 @@
       const rgb=base==='b'?'78,163,255':'240,101,149';
       return [`rgba(${rgb},${a})`,fg];
     }
-    function grid(title,data,base){
-      let h=`<div class="hmtitle">${title}</div><div class="hmscroll"><div class="hmgrid" style="grid-template-columns:48px repeat(${years.length},1fr)">`;
+    // thr is descending [115..75]; cumulative arrays align to it.
+    // Exclusive band[i] = cum[i] - cum[i-1] (the next-higher mark); top row = cum[0].
+    function toBands(arr){ return arr.map((v,i)=> i===0 ? v : v-arr[i-1]); }
+    function rowLabel(i,mode){
+      const t=thr[i];
+      if(mode==='cum') return (t===75?'<b>≥75</b>':'≥'+t);
+      return i===0 ? (t+'+') : (''+t);   // bands: exact 5-mile marks (laps are 5mi); 115+ open top
+    }
+    function grid(title,data,base,mode){
+      let h=`<div class="hmtitle">${title}</div><div class="hmscroll"><div class="hmgrid" style="grid-template-columns:60px repeat(${years.length},1fr)">`;
       h+=`<div></div>`+years.map(y=>`<div class="yr">'${(""+y).slice(2)}${partial[y]?'*':''}</div>`).join('');
       thr.forEach((t,ri)=>{
-        h+=`<div class="lab">${t===75?'<b>≥75</b>':'≥'+t}</div>`;
-        years.forEach(y=>{const v=data[y][ri];const[bg,fg]=shade(v,base);
-          h+=`<div class="cell" title="${v} reached ≥${t} mi in ${y}" style="background:${bg};color:${fg};font-weight:${v>=11?600:400}">${v||''}</div>`;});
+        h+=`<div class="lab">${rowLabel(ri,mode)}</div>`;
+        years.forEach(y=>{
+          const v=(mode==='cum'?data[y]:toBands(data[y]))[ri];
+          const[bg,fg]=shade(v,base);
+          const desc=mode==='cum'?`reached ≥${t} mi`:`finished ${rowLabel(ri,mode).replace(/<[^>]+>/g,'')} mi`;
+          h+=`<div class="cell" title="${v} ${desc} in ${y}" style="background:${bg};color:${fg};font-weight:${v>=11?600:400}">${v||''}</div>`;});
       });
       return h+`</div></div>`;
     }
-    document.getElementById('hm').innerHTML=
-      grid('Men',men,'b')+`<div style="height:16px"></div>`+grid('Women',women,'p');
+    const NOTE={cum:'Cumulative: counts everyone who reached at least that distance (higher marks are subsets of lower ones).',
+                band:'Bands: each athlete counted once, in their top bracket — the column sums to the full field.'};
+    function render(mode){
+      document.getElementById('hmnote').textContent=NOTE[mode];
+      document.getElementById('hm').innerHTML=
+        grid('Men',men,'b',mode)+`<div style="height:16px"></div>`+grid('Women',women,'p',mode);
+    }
+    document.querySelectorAll('#mtoggle button').forEach(b=>b.addEventListener('click',()=>{
+      document.querySelectorAll('#mtoggle button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); render(b.dataset.mode);
+    }));
+    render('cum');
   </script>
 </body>
 </html>
