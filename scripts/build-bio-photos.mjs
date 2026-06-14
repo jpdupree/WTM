@@ -93,6 +93,72 @@ function loadBios() {
   return bios;
 }
 
+// Common nicknames where the nickname is NOT a prefix of the full name, so
+// the prefix rule misses them ("joseph" doesn't start with "joe"). Bidirectional
+// — match works in either direction. Add new entries as race-day data demands;
+// keep it sorted by full name for editability.
+const NICKNAMES = {
+  abigail: ["abby", "gail"],
+  alexander: ["alex", "xander"],
+  alexandra: ["alex", "sandra"],
+  andrew: ["andy", "drew"],
+  anthony: ["tony"],
+  benjamin: ["ben", "benji"],
+  catherine: ["cathy", "kate", "katie"],
+  charles: ["charlie", "chuck"],
+  daniel: ["dan", "danny"],
+  david: ["dave"],
+  deborah: ["deb", "debbie"],
+  edward: ["ed", "eddie", "ted"],
+  elizabeth: ["beth", "betty", "liz", "lizzy"],
+  francis: ["frank"],
+  frederick: ["fred", "freddy"],
+  geoffrey: ["geoff"],
+  gregory: ["greg"],
+  henry: ["hank", "harry"],
+  jacob: ["jake"],
+  james: ["jim", "jimmy"],
+  jennifer: ["jen", "jenny"],
+  jessica: ["jess", "jessie"],
+  john: ["jack", "johnny"],
+  jonathan: ["jon", "jonny"],
+  joseph: ["joe", "joey"],
+  katherine: ["kate", "katie", "kathy", "kat"],
+  margaret: ["maggie", "meg", "peggy"],
+  matthew: ["matt", "matty"],
+  michael: ["mike", "mikey"],
+  nathan: ["nate"],
+  nathaniel: ["nate", "nat"],
+  nicholas: ["nick"],
+  patricia: ["pat", "patty", "tricia"],
+  patrick: ["pat"],
+  peter: ["pete"],
+  philip: ["phil"],
+  rebecca: ["becca", "becky"],
+  richard: ["dick", "rick", "ricky"],
+  robert: ["bob", "bobby", "rob", "robbie"],
+  ronald: ["ron", "ronny"],
+  russell: ["russ"],
+  samantha: ["sam", "sammy"],
+  samuel: ["sam", "sammy"],
+  stephen: ["steve"],
+  steven: ["steve"],
+  susan: ["sue", "susie"],
+  theodore: ["ted", "teddy"],
+  thomas: ["tom", "tommy"],
+  timothy: ["tim", "timmy"],
+  william: ["bill", "billy", "will", "willy"],
+  zachary: ["zach", "zack"],
+};
+
+function firstNamesMatch(a, c) {
+  if (a === c) return true;
+  if (a.startsWith(c) || c.startsWith(a)) return true;
+  if ((NICKNAMES[a] || []).includes(c)) return true;
+  if ((NICKNAMES[c] || []).includes(a)) return true;
+  return false;
+}
+
 function findBio(name, bios) {
   const qT = normTokens(name);
   if (!qT.length) return null;
@@ -109,8 +175,7 @@ function findBio(name, bios) {
     const aRest = [...qT.slice(1)].sort().join(" ");
     const cRest = [...b.normTokens.slice(1)].sort().join(" ");
     if (aRest !== cRest) continue;
-    const a = qT[0], c = b.normTokens[0];
-    if (a.startsWith(c) || c.startsWith(a)) return b;
+    if (firstNamesMatch(qT[0], b.normTokens[0])) return b;
   }
   return null;
 }
