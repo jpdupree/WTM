@@ -1,8 +1,10 @@
 // Pre-event participant survey → solo-stats "From the athlete" block.
 //
 // Reads data/bios.csv (an export of the form responses) and matches each
-// selected athlete by name. The CSV is served from the same site, so this
-// just needs a fetch — no Drive auth.
+// selected athlete by name. Survey-uploaded photos are baked into the repo
+// at data/bio-photos/ (the source Drive folder is private) and looked up
+// through data/bio-photos.json, keyed by the same name token-set used for
+// findBio. Both files are served from the same site, so no Drive auth.
 
 let biosPromise = null;
 
@@ -13,9 +15,27 @@ export function loadBios() {
 
 async function doLoad() {
   try {
-    const res = await fetch(new URL("../data/bios.csv", import.meta.url));
-    if (!res.ok) return [];
-    return parseBios(await res.text());
+    const [csv, manifest] = await Promise.all([
+      fetch(new URL("../data/bios.csv", import.meta.url)).then((r) =>
+        r.ok ? r.text() : "",
+      ),
+      fetch(new URL("../data/bio-photos.json", import.meta.url))
+        .then((r) => (r.ok ? r.json() : { photos: {} }))
+        .catch(() => ({ photos: {} })),
+    ]);
+    if (!csv) return [];
+    const bios = parseBios(csv);
+    const photos = manifest.photos || {};
+    for (const b of bios) {
+      const fname = photos[b.key];
+      if (fname) {
+        b.localPhotoUrl = new URL(
+          `../data/bio-photos/${encodeURIComponent(fname)}`,
+          import.meta.url,
+        ).href;
+      }
+    }
+    return bios;
   } catch (err) {
     console.warn("bios load failed:", err);
     return [];
@@ -57,24 +77,34 @@ export function renderBio(bio, container, opts = {}) {
     dl.append(dt, dd);
   }
   container.appendChild(dl);
-  if (!opts.skipPhoto && bio.photoUrl) {
+  if (opts.skipPhoto) return;
+  // Prefer a local survey photo (baked into the repo). Fall back to the Drive
+  // link in the CSV — only works if the Drive file is publicly viewable.
+  let imgSrc = null, href = null;
+  if (bio.localPhotoUrl) {
+    imgSrc = bio.localPhotoUrl;
+    href = bio.localPhotoUrl;
+  } else if (bio.photoUrl) {
     const fileId = (bio.photoUrl.match(/(?:\/d\/|[?&]id=)([-\w]{10,})/) || [])[1];
     if (fileId) {
-      const link = document.createElement("a");
-      link.className = "bio-photo";
-      link.href = bio.photoUrl;
-      link.target = "_blank";
-      link.rel = "noopener";
-      const img = document.createElement("img");
-      img.className = "bio-photo-img";
-      img.alt = bio.name ? bio.name + " — race photo" : "Athlete photo";
-      img.loading = "lazy";
-      img.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
-      img.onerror = () => { link.style.display = "none"; };
-      link.appendChild(img);
-      container.appendChild(link);
+      imgSrc = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+      href = bio.photoUrl;
     }
   }
+  if (!imgSrc) return;
+  const link = document.createElement("a");
+  link.className = "bio-photo";
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener";
+  const img = document.createElement("img");
+  img.className = "bio-photo-img";
+  img.alt = bio.name ? bio.name + " — race photo" : "Athlete photo";
+  img.loading = "lazy";
+  img.src = imgSrc;
+  img.onerror = () => { link.style.display = "none"; };
+  link.appendChild(img);
+  container.appendChild(link);
 }
 
 // --- internals -------------------------------------------------------

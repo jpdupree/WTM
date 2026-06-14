@@ -270,6 +270,18 @@ participant survey. To update it:
 2. Replace `data/bios.csv` with the new file (keep that exact filename).
 3. Commit and push. The commentator page picks it up on next load.
 
+Survey-uploaded photos are baked into the repo (the source "(File responses)"
+folder is private, so a browser can't read it directly). To refresh photos:
+
+1. In Drive, open the form's **"… (File responses)" folder → select all →
+   Download**. Drive zips them.
+2. Unzip into `data/bio-photos/` (keep the survey filenames — they end with
+   `- <Full Name>.<ext>`, which is how the build matches them to athletes).
+3. Run `node scripts/build-bio-photos.mjs` to regenerate
+   `data/bio-photos.json` (a name → filename map keyed by the same token-set
+   used for bio matching).
+4. Commit both the photo files and the manifest.
+
 Names are matched on **Full Name**, tolerating middle names ("Anne Clifford"
 ↔ "Anne Carolyn Clifford") and common nicknames ("Chris" ↔ "Christopher").
 
