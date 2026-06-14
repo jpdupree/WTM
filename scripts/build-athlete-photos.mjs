@@ -44,13 +44,19 @@ if (!apiKey || !folderId) {
 
 const OUT = new URL("../data/athlete-photos.json", import.meta.url);
 
+// Bibs without a real photo get a tiny placeholder uploaded in their slot
+// (≈68 bytes); anything below this is treated as "no photo" so the bio-photo
+// fallback in the commentator can take over. Bumping this won't affect real
+// images — they're all comfortably above 10 KB.
+const MIN_PHOTO_BYTES = 10 * 1024;
+
 async function listAll() {
   const out = [];
   let pageToken = null;
   do {
     const params = new URLSearchParams({
       q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
-      fields: "nextPageToken,files(id,name)",
+      fields: "nextPageToken,files(id,name,size)",
       pageSize: "1000",
       supportsAllDrives: "true",
       includeItemsFromAllDrives: "true",
@@ -74,11 +80,16 @@ console.log(`Found ${files.length} image file(s) in the folder.`);
 
 const manifest = {};
 const skipped = [];
+const placeholders = [];
 const collisions = [];
 for (const f of files) {
   const m = f.name.match(/^(\d+)/);
   if (!m) {
     skipped.push(f.name);
+    continue;
+  }
+  if (Number(f.size) < MIN_PHOTO_BYTES) {
+    placeholders.push(m[1]);
     continue;
   }
   const bib = m[1];
@@ -97,6 +108,13 @@ writeFileSync(
 console.log(
   `Wrote ${Object.keys(manifest).length} bib → photo entries to data/athlete-photos.json`,
 );
+if (placeholders.length) {
+  const uniq = [...new Set(placeholders)];
+  console.log(
+    `  Skipped ${placeholders.length} placeholder file(s) < ${MIN_PHOTO_BYTES} bytes ` +
+      `(${uniq.length} distinct bibs) — bio-photo fallback will take over.`,
+  );
+}
 if (skipped.length) {
   console.log(
     `  Skipped ${skipped.length} file(s) without a leading bib number:`,
