@@ -22,16 +22,22 @@ html, body {
   height: 100%;
 }
 
-.post { position: relative; width: 400px; }
+.post { position: relative; width: 400px; height: 720px; }
 
+/* Two overlaid iframes — see social.js for the double-buffer rotation. */
 .ig-frame {
   display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: 720px;
+  height: 100%;
   border: none;
   background: #fff;
   border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
 }
+.ig-frame.show { opacity: 1; }
 
 /* Covers the non-working "View profile" button in the embed header. */
 .vp-cover {
@@ -41,6 +47,7 @@ html, body {
   width: 116px;
   height: 38px;
   background: #fff;
+  z-index: 1;
 }
 
 .empty {
