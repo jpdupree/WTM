@@ -126,12 +126,7 @@
 
       <div id="screen-start" class="overlay">
         <h1>The Trial</h1>
-        <p>Belvoir Castle. Three stages — day, night, dawn. One life all the way through.</p>
-        <dl class="controls">
-          <dt>Tap</dt><dd>Jump walls and electric coils.</dd>
-          <dt>Hold</dt><dd>Climb the cargo net. Let go and you fall.</dd>
-          <dt>Tap rhythm</dt><dd>Swing the monkey bars. Miss the beat and you fall.</dd>
-        </dl>
+        <p>One life. No skips.</p>
         <button class="cta" id="btn-start">Begin</button>
         <p class="hint">space / tap to start</p>
       </div>
@@ -230,6 +225,7 @@ const PALETTES = {
     obj: '#9c6531', objEdge: '#c58a4d',
     water: '#3f86b5', waterEdge: '#7cc0e6',
     arc: 'rgba(90,170,255,0.95)',
+    playerRim: null,            // bright daytime sky — no rim needed
   },
   night: {
     sky: ['#05080f', '#0b1422', '#16243a'],
@@ -240,6 +236,7 @@ const PALETTES = {
     obj: '#7a5436', objEdge: '#a97c4a',
     water: '#1f4a63', waterEdge: '#4990b4',
     arc: 'rgba(250,210,70,1)',
+    playerRim: '#cfe0ff',       // moonlit rim so the silhouette reads in air
   },
   morning: {
     sky: ['#7c93b8', '#e8a574', '#f6c98a'],
@@ -250,6 +247,7 @@ const PALETTES = {
     obj: '#a2632f', objEdge: '#d08f4c',
     water: '#6a8ea0', waterEdge: '#a6cad9',
     arc: 'rgba(255,170,60,0.95)',
+    playerRim: null,
   },
 };
 
@@ -807,7 +805,7 @@ function update(dt) {
           player.netEnterX = net.x;
           climbAcc = 0;
         } else {
-          die('cargo net · you didn’t grab on');
+          die('cargo net · had to hold on');
         }
       }
       // monkey bars are resolved by the leading-edge crossing check below.
@@ -889,7 +887,7 @@ function update(dt) {
           player.y = HANG_Y;
           sfxGrab();
         } else {
-          die('monkey bars · you didn’t grab on');
+          die('monkey bars · had to hold on');
         }
         break;
       }
@@ -1197,9 +1195,19 @@ function drawFinish(x) {
 
 function drawPlayer() {
   const px = PLAYER_SX, py = player.y;
-  ctx.fillStyle = PLAYER_COLOR;
-  ctx.strokeStyle = PLAYER_COLOR;
-  ctx.lineWidth = 3;
+  // On dark stages, paint a brighter rim under the silhouette so the runner
+  // reads against the sky even mid-jump. Done by drawing the limbs twice —
+  // first as a fatter stroke in pal.playerRim, then the normal black on top.
+  if (pal.playerRim) {
+    drawPlayerLimbs(px, py, pal.playerRim, 7, true);
+  }
+  drawPlayerLimbs(px, py, PLAYER_COLOR, 3, false);
+}
+
+function drawPlayerLimbs(px, py, color, lineW, isRim) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineW;
   ctx.lineCap = 'round';
 
   // body
@@ -1208,9 +1216,9 @@ function drawPlayer() {
   ctx.moveTo(bodyX, bodyTop);
   ctx.lineTo(bodyX, bodyBot);
   ctx.stroke();
-  // head
+  // head — rim pass paints slightly larger so a halo shows around it
   ctx.beginPath();
-  ctx.arc(bodyX, py + 8, 9, 0, Math.PI * 2);
+  ctx.arc(bodyX, py + 8, isRim ? 11 : 9, 0, Math.PI * 2);
   ctx.fill();
 
   // limbs depend on mode
