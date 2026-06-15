@@ -86,6 +86,14 @@
       background: #0c1014;
       object-fit: contain;
     }
+    #mute-btn {
+      position: absolute; top: 10px; right: 12px; z-index: 20;
+      width: 38px; height: 34px; line-height: 1;
+      background: rgba(0,0,0,0.4); color: #fff;
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
+      font-size: 16px; cursor: pointer;
+    }
+    #mute-btn:hover { background: rgba(0,0,0,0.65); }
     .placeholder {
       display: flex; align-items: center; justify-content: center;
       width: min(420px, 70%); aspect-ratio: 1 / 1;
@@ -105,6 +113,7 @@
   <div id="root">
     <div id="stage">
       <canvas id="game" width="960" height="540"></canvas>
+      <button id="mute-btn" type="button" aria-label="Toggle sound">🔊</button>
 
       <div id="screen-start" class="overlay">
         <h1>The Trial</h1>
@@ -134,12 +143,12 @@
       </div>
 
       <div id="screen-won" class="overlay hidden">
-        <h2>You earned it.</h2>
+        <h2>Congratulations</h2>
         <img id="piece" alt="Puzzle piece" />
         <div id="piece-placeholder" class="placeholder" hidden>
           puzzle piece slot · encode it with<br/><code style="color:#cbd5e0">node scripts/encode-puzzle-piece.mjs &lt;image&gt;</code>
         </div>
-        <p class="hint">share the find. clue for the next piece coming soon.</p>
+        <p>You've completed the course and earned your prize. Please share it with the community.</p>
         <button class="cta" id="btn-play-again">Play Again</button>
       </div>
     </div>
@@ -180,7 +189,7 @@ const RUN_SPEED = 300;            // world px / s
 const GRAVITY = 2400;             // px / s²
 const JUMP_VY = -900;
 const CLIMB_VY = -160;            // upward speed while holding on net
-const CLIMB_FORWARD = 80;         // forward speed while climbing
+const CLIMB_FORWARD = 165;        // forward (sideways) speed while climbing the net
 const FALL_VY_MAX = 1800;
 const BAR_TIMEOUT = 0.55;         // s without tap → fall
 const BAR_GAP = 78;               // px between bars
@@ -188,38 +197,39 @@ const HANG_Y = FLOOR_Y - 170;     // y of feet while hanging (top of player)
 const NET_TOP_Y = FLOOR_Y - 140;  // top of cargo net
 
 // --- palettes (one per time-of-day stage) ----------------------------
+// The runner stays a black silhouette (PLAYER_COLOR); the world gets colour
+// so the foreground reads clearly. Background (castle/hill) is hazier/darker
+// for depth; obstacles + ground are brighter and saturated.
+const PLAYER_COLOR = '#0a0b0e';
 const PALETTES = {
   day: {
     sky: ['#5b9bd5', '#8fc0e8', '#cfe4f3'],
     light: { x: 0.70, y: 0.16, r: 240, glow: 'rgba(255,247,214,0.55)', core: '#fff7d6', coreR: 26 },
     stars: 0,
-    castle: '#16242f',
-    hill: '#16242f',
-    fg: '#0e1a26',          // near silhouettes: course, trees, player
-    ground: '#0a1119',
-    edge: '#243240',
-    arc: 'rgba(120,200,255,0.9)',
+    castle: '#7c8a99', hill: '#9cb7a8', tree: '#3f6e49',
+    ground: '#5c8a4f', groundEdge: '#7eae67',
+    obj: '#9c6531', objEdge: '#c58a4d',
+    water: '#3f86b5', waterEdge: '#7cc0e6',
+    arc: 'rgba(90,170,255,0.95)',
   },
   night: {
     sky: ['#05080f', '#0b1422', '#16243a'],
     light: { x: 0.72, y: 0.20, r: 150, glow: 'rgba(200,215,240,0.30)', core: '#e6edf7', coreR: 20 },
     stars: 70,
-    castle: '#0d1822',
-    hill: '#0c1626',
-    fg: '#070d15',
-    ground: '#05090f',
-    edge: '#2c3c54',        // brighter edges so obstacles read in the dark
-    arc: 'rgba(245,200,40,1)',
+    castle: '#2c3a4c', hill: '#33465e', tree: '#1c3326',
+    ground: '#33543c', groundEdge: '#54805f',
+    obj: '#7a5436', objEdge: '#a97c4a',
+    water: '#1f4a63', waterEdge: '#4990b4',
+    arc: 'rgba(250,210,70,1)',
   },
   morning: {
     sky: ['#7c93b8', '#e8a574', '#f6c98a'],
     light: { x: 0.50, y: 0.60, r: 300, glow: 'rgba(255,200,130,0.5)', core: '#ffe1ad', coreR: 34 },
     stars: 0,
-    castle: '#2a1f17',
-    hill: '#241a13',
-    fg: '#1c1410',
-    ground: '#0f0a06',
-    edge: '#3a2c20',
+    castle: '#6a5a62', hill: '#8a766c', tree: '#3a2a22',
+    ground: '#86714a', groundEdge: '#b39862',
+    obj: '#a2632f', objEdge: '#d08f4c',
+    water: '#6a8ea0', waterEdge: '#a6cad9',
     arc: 'rgba(255,170,60,0.95)',
   },
 };
@@ -438,6 +448,174 @@ function loadPuzzlePiece() {
   }
 }
 
+// --- audio (WebAudio, fully synthesized — no sound files) ------------
+let actx = null, masterGain = null, musicGain = null, sfxGain = null, muted = false;
+let musicTimer = null, musicStep = 0, musicNext = 0, musicTrack = null;
+let elecGain = null, climbAcc = 0;
+
+const NOTES = {
+  E2: 82.41, F2: 87.31, G2: 98.0, A2: 110.0, B2: 123.47,
+  C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.0, A3: 220.0, B3: 246.94,
+  C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.0, A4: 440.0, B4: 493.88,
+  C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.0,
+};
+const nf = (name) => NOTES[name] || 0;
+
+// One looping track per stage — distinct key, tempo, timbre.
+const TRACKS = [
+  { tempo: 140, wave: 'square',   // day: bright major
+    lead: ['C5','E5','G4','E5','A4','C5','G4','E5','F4','A4','C5','A4','G4','C5','E5',0],
+    bass: ['C3','A2','F2','G2'] },
+  { tempo: 100, wave: 'triangle', // night: moody minor
+    lead: ['A4',0,'E4','A4',0,'C5','B4',0,'F4',0,'A4','C5',0,'E4',0,0],
+    bass: ['A2','F2','C3','E2'] },
+  { tempo: 124, wave: 'square',   // dawn: triumphant rising
+    lead: ['G4','C5','E5','G5','E5','C5','G4','C5','A4','D5','F5','A5','F5','D5','A4',0],
+    bass: ['C3','G2','A2','F2'] },
+];
+
+function initAudio() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  actx = new AC();
+  masterGain = actx.createGain();
+  masterGain.gain.value = muted ? 0 : 0.85;
+  masterGain.connect(actx.destination);
+  musicGain = actx.createGain(); musicGain.gain.value = 0.5; musicGain.connect(masterGain);
+  sfxGain = actx.createGain(); sfxGain.gain.value = 0.8; sfxGain.connect(masterGain);
+  startElectricity();
+}
+function setMuted(m) {
+  muted = m;
+  if (masterGain) masterGain.gain.setTargetAtTime(m ? 0 : 0.85, actx.currentTime, 0.02);
+}
+
+function blip(freq, t0, dur, type, dest, peak) {
+  if (!actx || !freq) return;
+  const o = actx.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t0);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(dest);
+  o.start(t0);
+  o.stop(t0 + dur + 0.03);
+}
+function noiseBurst(t0, dur, cutoff, peak) {
+  if (!actx) return;
+  const len = Math.max(1, Math.floor(actx.sampleRate * dur));
+  const buf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = cutoff; f.Q.value = 0.8;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(peak, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f).connect(g).connect(sfxGain);
+  src.start(t0); src.stop(t0 + dur + 0.02);
+}
+
+function startMusic(idx) {
+  if (!actx) return;
+  stopMusic();
+  musicTrack = TRACKS[idx] || TRACKS[0];
+  musicStep = 0;
+  musicNext = actx.currentTime + 0.08;
+  musicTimer = setInterval(musicSched, 25);
+}
+function stopMusic() {
+  if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  musicTrack = null;
+}
+function musicSched() {
+  if (!actx || !musicTrack) return;
+  const stepDur = 30 / musicTrack.tempo; // eighth-note seconds (60/tempo/2)
+  while (musicNext < actx.currentTime + 0.18) {
+    const lead = musicTrack.lead;
+    const ln = nf(lead[musicStep % lead.length]);
+    if (ln) blip(ln, musicNext, stepDur * 0.9, musicTrack.wave, musicGain, 0.22);
+    if (musicStep % 4 === 0) {
+      const bass = musicTrack.bass;
+      const bn = nf(bass[Math.floor(musicStep / 4) % bass.length]);
+      if (bn) blip(bn, musicNext, stepDur * 3.6, 'triangle', musicGain, 0.3);
+    }
+    musicNext += stepDur;
+    musicStep++;
+  }
+}
+
+// persistent electric buzz, gain-gated when coils are on screen
+function startElectricity() {
+  if (!actx) return;
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300;
+  elecGain = actx.createGain(); elecGain.gain.value = 0;
+  lp.connect(elecGain).connect(sfxGain);
+  const a = actx.createOscillator(); a.type = 'sawtooth'; a.frequency.value = 70; a.connect(lp); a.start();
+  const b = actx.createOscillator(); b.type = 'square'; b.frequency.value = 141; b.connect(lp); b.start();
+}
+function setElectricity(on) {
+  if (!actx || !elecGain) return;
+  elecGain.gain.setTargetAtTime(on ? 0.1 : 0.0, actx.currentTime, 0.05);
+}
+
+function sfxJump() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(); const g = actx.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(420, t);
+  o.frequency.exponentialRampToValueAtTime(820, t + 0.12);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.45, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  o.connect(g).connect(sfxGain); o.start(t); o.stop(t + 0.18);
+}
+function sfxGrab() {        // monkey-bar / pipe clack
+  if (!actx) return;
+  blip(880, actx.currentTime, 0.05, 'square', sfxGain, 0.4);
+  noiseBurst(actx.currentTime, 0.04, 1800, 0.3);
+}
+function sfxClimbTick() {    // cargo-net scrape
+  if (actx) noiseBurst(actx.currentTime, 0.05, 600, 0.16);
+}
+function sfxDie() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(); const g = actx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(220, t);
+  o.frequency.exponentialRampToValueAtTime(55, t + 0.45);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+  o.connect(g).connect(sfxGain); o.start(t); o.stop(t + 0.55);
+}
+function sfxStageClear() {   // cleared stage 1 or 2
+  if (!actx) return;
+  stopMusic(); setElectricity(false);
+  const t = actx.currentTime;
+  ['C5','E5','G5','C5'].forEach((nm, i) => blip(nf(nm), t + i * 0.12, 0.22, 'square', sfxGain, 0.4));
+}
+function sfxVictory() {      // beat stage 3 — bigger fanfare
+  if (!actx) return;
+  stopMusic(); setElectricity(false);
+  const t = actx.currentTime;
+  ['C5','E5','G5','C5','D5','E5'].forEach((nm, i) => blip(nf(nm), t + i * 0.14, 0.2, 'square', sfxGain, 0.42));
+  ['C5','E5','G5'].forEach((nm) => blip(nf(nm), t + 0.9, 1.4, 'square', sfxGain, 0.3));
+  ['C4','G4'].forEach((nm) => blip(nf(nm), t + 0.9, 1.6, 'triangle', sfxGain, 0.28));
+}
+
+const muteBtn = document.getElementById('mute-btn');
+muteBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  setMuted(!muted);
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+});
+
 // --- life cycle -------------------------------------------------------
 // Point the world at a stage's course + palette and reset the runner to the
 // start line. Used both to begin stage 1 and to advance between stages.
@@ -457,9 +635,12 @@ function loadStage(i) {
   player.barIdx = 0;
   player.lastTap = 0;
   elapsed = 0;
+  climbAcc = 0;
+  if (actx) { setElectricity(false); startMusic(i); }
 }
 
 function beginRun(force) {
+  initAudio();
   if (alreadyWon() && !force) { showWon(); return; }
   attempts += 1;
   recordAttempt();
@@ -477,6 +658,7 @@ function clearStage() {
     return;
   }
   phase = 'stage';
+  sfxStageClear();
   const next = STAGES[stageIdx + 1];
   document.getElementById('stage-title').textContent = next.title;
   document.getElementById('stage-sub').textContent = next.sub;
@@ -491,6 +673,7 @@ function continueToNextStage() {
 function die(cause) {
   if (phase !== 'running') return;
   phase = 'dead';
+  stopMusic(); setElectricity(false); sfxDie();
   deadCause = cause;
   document.getElementById('dead-cause').textContent = cause;
   document.getElementById('dead-stat').textContent =
@@ -499,6 +682,7 @@ function die(cause) {
 }
 function showWon() {
   phase = 'won';
+  stopMusic(); setElectricity(false); sfxVictory();
   loadPuzzlePiece();
   showOverlay('won');
 }
@@ -535,6 +719,7 @@ function update(dt) {
       if (input.pressed) {
         player.vy = JUMP_VY;
         player.mode = 'air';
+        sfxJump();
       }
       // enter cargo net? Must already be holding the button.
       const net = approachZone('net', player.x);
@@ -542,6 +727,7 @@ function update(dt) {
         if (input.held) {
           player.mode = 'climb';
           player.netEnterX = net.x;
+          climbAcc = 0;
         } else {
           die('cargo net · you didn’t grab on');
         }
@@ -556,6 +742,7 @@ function update(dt) {
           // snap to first bar position
           player.x = bars.x + 15;
           player.y = HANG_Y;
+          sfxGrab();
         } else {
           die('monkey bars · you didn’t grab on');
         }
@@ -591,6 +778,8 @@ function update(dt) {
       // forward + upward along net diagonal
       player.x += CLIMB_FORWARD * dt;
       player.y += CLIMB_VY * dt;
+      climbAcc += dt;
+      if (climbAcc >= 0.16) { sfxClimbTick(); climbAcc -= 0.16; }
       // Clamp so the reaching hand grips the top rope rather than the feet
       // standing on it: in the climb pose the upper hand is drawn ~4px above
       // player.y, and the top rope sits at NET_TOP_Y.
@@ -606,6 +795,7 @@ function update(dt) {
         player.barIdx += 1;
         player.lastTap = elapsed;
         player.x += BAR_GAP;
+        sfxGrab();
         if (!bars || player.barIdx >= bars.bars) {
           // off the end — drop and resume run
           player.mode = 'air';
@@ -616,6 +806,18 @@ function update(dt) {
       }
       break;
     }
+  }
+
+  // electric buzz while any coil is on screen
+  if (actx) {
+    let elecOn = false;
+    const scr = Math.max(0, player.x - PLAYER_SX);
+    for (const o of course) {
+      if (o.kind !== 'wires') continue;
+      const sx = o.x - scr;
+      if (sx < W + 40 && sx + o.w > -40) { elecOn = true; break; }
+    }
+    setElectricity(elecOn);
   }
 
   // collision with kill-on-contact obstacles (walls, wires)
@@ -648,7 +850,7 @@ function render() {
   // parallax: castle far back at 0.18×, hills at 0.45×, ground at 1×.
   const scroll = Math.max(0, player.x - PLAYER_SX);
   drawSky();
-  drawCastle(-scroll * 0.07);  // slow parallax so the far-right castle lingers
+  drawCastle(-scroll * 0.05);  // slow parallax so the far-right castle lingers
   drawHills(-scroll * 0.45);
   drawGround(-scroll);
   drawCourse(-scroll);
@@ -696,13 +898,13 @@ function drawCastle(ox) {
   ctx.fillStyle = pal.castle;
   // Castle sits far-right at each stage's start (scroll resets per stage) and
   // drifts slowly left as a distant landmark you run toward.
-  const baseX = W * 0.74, baseW = 220, baseH = 70;
+  const baseX = W * 0.82, baseW = 220, baseH = 70;
   const hillY = H * 0.66;
   const baseY = hillY - 18;
   // hill mound beneath the castle
   ctx.beginPath();
-  ctx.moveTo(baseX - 190, FLOOR_Y);
-  ctx.quadraticCurveTo(baseX + baseW / 2, hillY - 46, baseX + baseW + 170, FLOOR_Y);
+  ctx.moveTo(baseX - 150, FLOOR_Y);
+  ctx.quadraticCurveTo(baseX + baseW / 2, hillY - 46, baseX + baseW + 140, FLOOR_Y);
   ctx.closePath();
   ctx.fill();
 
@@ -759,8 +961,8 @@ function drawHills(ox) {
     ctx.closePath();
     ctx.fill();
   }
-  // foreground trees as silhouettes
-  ctx.fillStyle = pal.fg;
+  // foreground trees
+  ctx.fillStyle = pal.tree;
   for (let i = -1; i < 6; i++) {
     const tx = (i * 280 + (ox % 280)) % (W + 600) - 100;
     drawTree(tx + 40, FLOOR_Y);
@@ -781,18 +983,26 @@ function drawGround(ox) {
   ctx.fillStyle = pal.ground;
   ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
   // a brighter top edge line
-  ctx.fillStyle = pal.edge;
+  ctx.fillStyle = pal.groundEdge;
   ctx.fillRect(0, FLOOR_Y, W, 2);
 
-  // pits beneath any bars section
+  // water pit beneath any monkey-bars section
   for (const o of course) {
     if (o.kind !== 'bars') continue;
     const sx = o.x + ox;
     if (sx + o.w < 0 || sx > W) continue;
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = pal.water;
     ctx.fillRect(sx, FLOOR_Y, o.w, H - FLOOR_Y);
-    ctx.fillStyle = pal.edge;
-    ctx.fillRect(sx, FLOOR_Y, o.w, 2);
+    // animated surface ripple
+    ctx.strokeStyle = pal.waterEdge;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let wx = 0; wx <= o.w; wx += 6) {
+      const yy = FLOOR_Y + 3 + Math.sin((wx + elapsed * 90) / 16) * 2;
+      if (wx === 0) ctx.moveTo(sx + wx, yy);
+      else ctx.lineTo(sx + wx, yy);
+    }
+    ctx.stroke();
   }
 }
 
@@ -808,15 +1018,15 @@ function drawCourse(ox) {
   }
 }
 function drawWall(x, w, h) {
-  ctx.fillStyle = pal.fg;
+  ctx.fillStyle = pal.obj;
   ctx.fillRect(x, FLOOR_Y - h, w, h);
   // top accent
-  ctx.fillStyle = pal.edge;
+  ctx.fillStyle = pal.objEdge;
   ctx.fillRect(x, FLOOR_Y - h, w, 2);
 }
 function drawNet(x, w) {
   ctx.save();
-  ctx.fillStyle = pal.fg;
+  ctx.fillStyle = pal.obj;
   // posts
   ctx.fillRect(x - 4, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
   ctx.fillRect(x + w - 2, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
@@ -830,7 +1040,7 @@ function drawNet(x, w) {
   ctx.beginPath();
   ctx.rect(x, gridY0, w, span);
   ctx.clip();
-  ctx.strokeStyle = pal.fg;
+  ctx.strokeStyle = pal.objEdge;
   ctx.lineWidth = 2;
   ctx.beginPath();
   for (let i = -span; i <= w + span; i += step) {
@@ -845,7 +1055,7 @@ function drawNet(x, w) {
 function drawBars(x, o) {
   // overhead rail with hanging bars
   const railY = HANG_Y - 14;
-  ctx.fillStyle = pal.fg;
+  ctx.fillStyle = pal.obj;
   ctx.fillRect(x, railY, o.w, 6);
   // posts
   ctx.fillRect(x - 4, railY - 30, 6, 30);
@@ -860,7 +1070,7 @@ function drawBars(x, o) {
 function drawWires(x, w, h) {
   // low electrified coil you hop. Short posts, crossbar, arcing top wire.
   const topY = FLOOR_Y - h;
-  ctx.fillStyle = pal.fg;
+  ctx.fillStyle = pal.obj;
   ctx.fillRect(x, topY, 4, h);
   ctx.fillRect(x + w - 4, topY, 4, h);
   ctx.fillRect(x, topY, w, 4);
@@ -884,7 +1094,7 @@ function drawWires(x, w, h) {
 function drawFinish(x) {
   // checkered post
   const poleW = 6, poleH = 130;
-  ctx.fillStyle = pal.fg;
+  ctx.fillStyle = pal.obj;
   ctx.fillRect(x, FLOOR_Y - poleH, poleW, poleH);
   // banner
   const bw = 80, bh = 36;
@@ -899,8 +1109,8 @@ function drawFinish(x) {
 
 function drawPlayer() {
   const px = PLAYER_SX, py = player.y;
-  ctx.fillStyle = pal.fg;
-  ctx.strokeStyle = pal.fg;
+  ctx.fillStyle = PLAYER_COLOR;
+  ctx.strokeStyle = PLAYER_COLOR;
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
 
