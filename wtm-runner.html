@@ -711,6 +711,8 @@ function update(dt) {
   // run animation tick (visual only)
   player.runFrame = (player.runFrame + dt * 12) % 4;
 
+  const frameStartX = player.x; // for leading-edge crossing checks below
+
   switch (player.mode) {
     case 'ground': {
       // forward run
@@ -732,21 +734,7 @@ function update(dt) {
           die('cargo net · you didn’t grab on');
         }
       }
-      // enter monkey bars? auto-grab if you're holding (else die in pit).
-      const bars = approachZone('bars', player.x);
-      if (bars) {
-        if (input.held) {
-          player.mode = 'hang';
-          player.barIdx = 0;
-          player.lastTap = elapsed;
-          // snap to first bar position
-          player.x = bars.x + 15;
-          player.y = HANG_Y;
-          sfxGrab();
-        } else {
-          die('monkey bars · you didn’t grab on');
-        }
-      }
+      // monkey bars are resolved by the leading-edge crossing check below.
       break;
     }
 
@@ -805,6 +793,30 @@ function update(dt) {
         die('monkey bars · you fell');
       }
       break;
+    }
+  }
+
+  // Monkey bars: resolve once, exactly when the runner crosses the first
+  // bar's grab point (bars.x + 15). Holding → grab and lift onto the bars;
+  // not holding → you're over the water and missed it. Only fires on the
+  // leading edge, so you can never get yanked backward onto the bars.
+  if ((player.mode === 'ground' || player.mode === 'air') && phase === 'running') {
+    for (const o of course) {
+      if (o.kind !== 'bars') continue;
+      const grabX = o.x + 15;
+      if (frameStartX < grabX && player.x >= grabX) {
+        if (input.held) {
+          player.mode = 'hang';
+          player.barIdx = 0;
+          player.lastTap = elapsed;
+          player.x = grabX;
+          player.y = HANG_Y;
+          sfxGrab();
+        } else {
+          die('monkey bars · you didn’t grab on');
+        }
+        break;
+      }
     }
   }
 
