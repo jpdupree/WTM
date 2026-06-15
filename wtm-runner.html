@@ -553,8 +553,10 @@ function update(dt) {
       // forward + upward along net diagonal
       player.x += CLIMB_FORWARD * dt;
       player.y += CLIMB_VY * dt;
-      // clamp y to net peak (top of net at NET_TOP_Y - PLAYER_H)
-      const peakY = NET_TOP_Y - PLAYER_H;
+      // Clamp so the reaching hand grips the top rope rather than the feet
+      // standing on it: in the climb pose the upper hand is drawn ~4px above
+      // player.y, and the top rope sits at NET_TOP_Y.
+      const peakY = NET_TOP_Y + 4;
       if (player.y < peakY) player.y = peakY;
       break;
     }
