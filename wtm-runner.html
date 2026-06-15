@@ -137,7 +137,7 @@
         <h2>You earned it.</h2>
         <img id="piece" alt="Puzzle piece" />
         <div id="piece-placeholder" class="placeholder" hidden>
-          puzzle piece slot · drop image at <br/><code style="color:#cbd5e0">data/puzzle-piece-1.png</code>
+          puzzle piece slot · encode it with<br/><code style="color:#cbd5e0">node scripts/encode-puzzle-piece.mjs &lt;image&gt;</code>
         </div>
         <p class="hint">share the find. clue for the next piece coming soon.</p>
         <button class="cta" id="btn-play-again">Play Again</button>
@@ -154,7 +154,14 @@
 // or open standalone. Puzzle piece reveals on win and persists in localStorage.
 // =====================================================================
 
-const PUZZLE_PIECE_URL = 'data/puzzle-piece-1.png'; // swap in the real piece
+// The puzzle piece is embedded XOR-obfuscated + base64 and only decoded on
+// the win event, so it can't be grabbed from a public URL or view-source
+// without beating the game. Inject the real image with:
+//   node scripts/encode-puzzle-piece.mjs <image-file>
+// Until then PIECE_DATA is empty and the win screen shows a placeholder.
+const PIECE_KEY = 'wtm2026belvoir';
+const PIECE_MIME = ''; // PIECE_MIME
+const PIECE_DATA = ''; // PIECE_DATA
 const WON_STORAGE_KEY = 'wtmTrialWon_v1';
 const ATTEMPT_STORAGE_KEY = 'wtmTrialAttempts_v1';
 
@@ -403,10 +410,32 @@ pieceImg.addEventListener('error', () => {
   pieceImg.hidden = true;
   piecePlaceholder.hidden = false;
 });
+// Reverse the XOR + base64 obfuscation into an inline data URL.
+function decodePiece() {
+  if (!PIECE_DATA || !PIECE_MIME) return null;
+  try {
+    const blob = atob(PIECE_DATA);
+    let out = '';
+    for (let i = 0; i < blob.length; i++) {
+      out += String.fromCharCode(
+        blob.charCodeAt(i) ^ PIECE_KEY.charCodeAt(i % PIECE_KEY.length),
+      );
+    }
+    return 'data:' + PIECE_MIME + ';base64,' + btoa(out);
+  } catch {
+    return null;
+  }
+}
 function loadPuzzlePiece() {
-  pieceImg.hidden = false;
-  piecePlaceholder.hidden = true;
-  pieceImg.src = PUZZLE_PIECE_URL + '?t=' + Date.now();
+  const url = decodePiece();
+  if (url) {
+    pieceImg.hidden = false;
+    piecePlaceholder.hidden = true;
+    pieceImg.src = url;
+  } else {
+    pieceImg.hidden = true;
+    piecePlaceholder.hidden = false;
+  }
 }
 
 // --- life cycle -------------------------------------------------------
