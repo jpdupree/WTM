@@ -86,6 +86,15 @@
       background: #0c1014;
       object-fit: contain;
     }
+    .math {
+      font-size: clamp(28px, 5vw, 48px); font-weight: 800;
+      letter-spacing: 0.12em; color: #f0b400; margin: 8px 0 16px;
+    }
+    #math-input {
+      font-size: 22px; width: 130px; text-align: center; padding: 10px;
+      border-radius: 6px; border: 1px solid #f0b400;
+      background: #0c1014; color: #e8edf2; margin-bottom: 8px;
+    }
     #mute-btn {
       position: absolute; top: 10px; right: 12px; z-index: 20;
       width: 38px; height: 34px; line-height: 1;
@@ -132,6 +141,15 @@
         <p id="stage-sub">The sun is down. Keep moving.</p>
         <button class="cta" id="btn-continue">Continue</button>
         <p class="hint">space / tap to continue</p>
+      </div>
+
+      <div id="screen-mental" class="overlay hidden">
+        <h2>Mental Check</h2>
+        <p>Medical needs you sharp. Solve it to continue — wrong answer and you're DQ'd.</p>
+        <div id="math-problem" class="math">3 + 4 - 2 = ?</div>
+        <input id="math-input" type="number" inputmode="numeric" autocomplete="off" />
+        <button class="cta" id="btn-mental">Submit</button>
+        <p class="hint">type your answer · enter to submit</p>
       </div>
 
       <div id="screen-dead" class="overlay hidden">
@@ -185,13 +203,14 @@ const FLOOR_Y = H - 70;
 const PLAYER_SX = 200;            // player's fixed x on screen
 const PLAYER_W = 26;
 const PLAYER_H = 50;
-const RUN_SPEED = 300;            // world px / s
-const GRAVITY = 2400;             // px / s²
-const JUMP_VY = -900;
+const RUN_SPEED = 330;            // world px / s (faster = less reaction time)
+const GRAVITY = 2650;             // px / s² — paired with JUMP_VY so airborne
+const JUMP_VY = -905;             // distance (~225px) is unchanged: spacing stays
+                                  // fair, but jumps are snappier and the pace bites
 const CLIMB_VY = -160;            // upward speed while holding on net
 const CLIMB_FORWARD = 165;        // forward (sideways) speed while climbing the net
 const FALL_VY_MAX = 1800;
-const BAR_TIMEOUT = 0.55;         // s without tap → fall
+const BAR_TIMEOUT = 0.40;         // s without a tap before you fall off the bars
 const BAR_GAP = 78;               // px between bars
 const HANG_Y = FLOOR_Y - 170;     // y of feet while hanging (top of player)
 const NET_TOP_Y = FLOOR_Y - 140;  // top of cargo net
@@ -271,44 +290,44 @@ const PAT_DAY = [
   entry('net', 480, { w: 300 }),
   entry('wall', 660, { h: 58 }),
   entry('wall', 280, { h: 58 }),
-  entry('wall', 280, { h: 86 }),
+  entry('wall', 280, { h: 96 }),
   entry('bars', 440, { bars: 6 }),
   entry('wires', 760, { h: 48 }),
   entry('wires', 255, { h: 48 }),
   entry('wires', 255, { h: 48 }),
-  entry('wall', 450, { h: 100 }),
+  entry('wall', 450, { h: 124 }),
 ];
 const PAT_NIGHT = [
-  entry('wall', 700, { h: 60 }),
-  entry('wall', 280, { h: 80 }),
-  entry('wall', 280, { h: 60 }),
+  entry('wall', 700, { h: 64 }),
+  entry('wall', 280, { h: 90 }),
+  entry('wall', 280, { h: 64 }),
   entry('net', 440, { w: 340 }),
   entry('wires', 740, { h: 48 }),
   entry('wires', 255, { h: 48 }),
   entry('wires', 255, { h: 48 }),
   entry('bars', 390, { bars: 7 }),
-  entry('wall', 920, { h: 64 }),
-  entry('wall', 280, { h: 64 }),
+  entry('wall', 920, { h: 70 }),
+  entry('wall', 280, { h: 70 }),
   entry('wires', 320, { h: 48 }),
   entry('wires', 255, { h: 48 }),
-  entry('wall', 345, { h: 105 }),
+  entry('wall', 345, { h: 128 }),
 ];
 const PAT_DAWN = [
-  entry('wall', 680, { h: 62 }),
-  entry('wall', 260, { h: 80 }),
-  entry('wall', 260, { h: 62 }),
-  entry('wires', 320, { h: 50 }),
-  entry('wires', 255, { h: 50 }),
-  entry('wires', 255, { h: 50 }),
+  entry('wall', 680, { h: 66 }),
+  entry('wall', 260, { h: 92 }),
+  entry('wall', 260, { h: 66 }),
+  entry('wires', 320, { h: 52 }),
+  entry('wires', 255, { h: 52 }),
+  entry('wires', 255, { h: 52 }),
   entry('net', 370, { w: 380 }),
   entry('bars', 720, { bars: 8 }),
-  entry('wall', 1060, { h: 66 }),
-  entry('wall', 260, { h: 66 }),
-  entry('wall', 260, { h: 92 }),
-  entry('wires', 340, { h: 50 }),
-  entry('wires', 255, { h: 50 }),
-  entry('wires', 255, { h: 50 }),
-  entry('wall', 370, { h: 110 }),
+  entry('wall', 1060, { h: 70 }),
+  entry('wall', 260, { h: 70 }),
+  entry('wall', 260, { h: 104 }),
+  entry('wires', 340, { h: 52 }),
+  entry('wires', 255, { h: 52 }),
+  entry('wires', 255, { h: 52 }),
+  entry('wall', 370, { h: 134 }),
 ];
 
 const STAGES = [
@@ -360,6 +379,7 @@ function overlayAction() {
   else if (activeOverlay === 'won') beginRun(true);
 }
 function onKeyDown(e) {
+  if (activeOverlay === 'mental') return; // let the answer box take keystrokes
   if (!JUMP_KEYS.has(e.code) && e.code !== 'Enter') return;
   e.preventDefault();
   if (phase !== 'running') {
@@ -381,10 +401,11 @@ window.addEventListener('blur', () => setHeld(false));
 
 // --- overlays ---------------------------------------------------------
 const overlays = {
-  start: document.getElementById('screen-start'),
-  stage: document.getElementById('screen-stage'),
-  dead:  document.getElementById('screen-dead'),
-  won:   document.getElementById('screen-won'),
+  start:  document.getElementById('screen-start'),
+  stage:  document.getElementById('screen-stage'),
+  mental: document.getElementById('screen-mental'),
+  dead:   document.getElementById('screen-dead'),
+  won:    document.getElementById('screen-won'),
 };
 function showOverlay(name) {
   activeOverlay = name;
@@ -399,6 +420,17 @@ overlays.stage.addEventListener('click', () => continueToNextStage());
 document.getElementById('btn-play-again').addEventListener('click', (e) => {
   e.stopPropagation();
   beginRun(true);
+});
+
+// Mental Check input — submit on click or Enter; keep typing out of the game.
+const mathInput = document.getElementById('math-input');
+document.getElementById('btn-mental').addEventListener('click', (e) => {
+  e.stopPropagation();
+  submitMental();
+});
+mathInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') { e.preventDefault(); submitMental(); }
 });
 
 // --- win persistence --------------------------------------------------
@@ -650,24 +682,68 @@ function beginRun(force) {
   showOverlay(null);
 }
 
-// Finished a stage's course. Advance to the next stage, or win after the last.
+// Finished a stage's course. Win after the last; gate dawn behind the WTM
+// "Mental Check"; otherwise show the next stage card.
 function clearStage() {
   if (stageIdx >= STAGES.length - 1) {
     markWon();
     showWon();
     return;
   }
-  phase = 'stage';
+  if (stageIdx === 1) { showMentalCheck(); return; } // after the night stage
   sfxStageClear();
-  const next = STAGES[stageIdx + 1];
-  document.getElementById('stage-title').textContent = next.title;
-  document.getElementById('stage-sub').textContent = next.sub;
+  showStageCard(stageIdx + 1);
+}
+function showStageCard(idx) {
+  phase = 'stage';
+  const s = STAGES[idx];
+  document.getElementById('stage-title').textContent = s.title;
+  document.getElementById('stage-sub').textContent = s.sub;
   showOverlay('stage');
 }
 function continueToNextStage() {
   loadStage(stageIdx + 1);
   phase = 'running';
   showOverlay(null);
+}
+
+// --- Mental Check (WTM tradition): a 3-term single-digit problem gates the
+// final stage. Wrong answer = Medical DQ = start over. -----------------
+let mathAnswer = 0;
+function generateMathProblem() {
+  let a, b, c, op1, op2, mid, val;
+  do {
+    a = 1 + Math.floor(Math.random() * 9);
+    b = 1 + Math.floor(Math.random() * 9);
+    c = 1 + Math.floor(Math.random() * 9);
+    op1 = Math.random() < 0.5 ? '+' : '-';
+    op2 = Math.random() < 0.5 ? '+' : '-';
+    mid = op1 === '+' ? a + b : a - b;
+    val = op2 === '+' ? mid + c : mid - c;
+  } while (mid < 0 || val < 0 || val > 20); // keep it clean and non-negative
+  mathAnswer = val;
+  document.getElementById('math-problem').textContent =
+    a + ' ' + op1 + ' ' + b + ' ' + op2 + ' ' + c + ' = ?';
+}
+function showMentalCheck() {
+  sfxStageClear();
+  phase = 'mental';
+  generateMathProblem();
+  mathInput.value = '';
+  showOverlay('mental');
+  setTimeout(() => { try { mathInput.focus(); } catch {} }, 60);
+}
+function submitMental() {
+  if (phase !== 'mental') return;
+  if (parseInt(mathInput.value, 10) === mathAnswer) {
+    showStageCard(stageIdx + 1); // passed → on to the final stage
+  } else {
+    phase = 'dead';
+    stopMusic(); setElectricity(false); sfxDie();
+    document.getElementById('dead-cause').textContent = 'Medical has DQ’d you';
+    document.getElementById('dead-stat').textContent = 'Mental check failed · back to the start';
+    showOverlay('dead');
+  }
 }
 
 function die(cause) {
@@ -1169,20 +1245,19 @@ function drawPlayer() {
     ctx.lineTo(bodyX - 6, bodyTop + 14);
     ctx.stroke();
   } else if (player.mode === 'climb') {
-    // body angled, arms up
+    // vertical torso (meets the centred head), both arms reaching up to grip,
+    // both legs planted on the net — reads as one connected figure
     ctx.beginPath();
-    ctx.moveTo(bodyX - 4, bodyTop);
-    ctx.lineTo(bodyX + 4, bodyBot);
-    // arms up
-    ctx.moveTo(bodyX - 2, bodyTop + 4);
-    ctx.lineTo(bodyX - 12, bodyTop - 12);
-    ctx.moveTo(bodyX - 2, bodyTop + 4);
-    ctx.lineTo(bodyX + 12, bodyTop - 16);
-    // legs angled
-    ctx.moveTo(bodyX + 4, bodyBot);
-    ctx.lineTo(bodyX + 14, py + PLAYER_H);
-    ctx.moveTo(bodyX + 4, bodyBot);
-    ctx.lineTo(bodyX - 6, py + PLAYER_H);
+    ctx.moveTo(bodyX, bodyTop);
+    ctx.lineTo(bodyX, bodyBot);
+    ctx.moveTo(bodyX, bodyTop + 3);
+    ctx.lineTo(bodyX - 11, bodyTop - 15);
+    ctx.moveTo(bodyX, bodyTop + 3);
+    ctx.lineTo(bodyX + 11, bodyTop - 17);
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX - 9, py + PLAYER_H);
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX + 9, py + PLAYER_H);
     ctx.stroke();
   } else if (player.mode === 'hang') {
     // arms up to bar, legs dangling with slight swing
