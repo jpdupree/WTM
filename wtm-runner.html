@@ -217,79 +217,88 @@ const PALETTES = {
   },
 };
 
-// --- stages (sized within jump limits: heights <= ~110, jump gaps >= ~250,
-// net/bars approaches have runway to switch tap<->hold). Difficulty rises. ----
-const STAGES = [
-  {
-    pal: 'day',
-    title: 'Stage 1 · Day',
-    sub: 'High sun. Learn the course.',
-    course: [
-      { kind: 'wall',  x: 720,  w: 22, h: 56 },
-      { kind: 'wall',  x: 1020, w: 22, h: 72 },
-      { kind: 'net',   x: 1500, w: 300 },
-      { kind: 'wall',  x: 2160, w: 22, h: 58 },
-      { kind: 'wall',  x: 2440, w: 22, h: 58 },
-      { kind: 'wall',  x: 2720, w: 26, h: 86 },
-      { kind: 'bars',  x: 3160, bars: 6 },
-      { kind: 'wires', x: 3920, w: 40, h: 48 },
-      { kind: 'wires', x: 4175, w: 40, h: 48 },
-      { kind: 'wires', x: 4430, w: 40, h: 48 },
-      { kind: 'wall',  x: 4880, w: 30, h: 100 },
-      { kind: 'finish', x: 5240 },
-    ],
-  },
-  {
-    pal: 'night',
-    title: 'Stage 2 · Night',
-    sub: 'The sun is down. Keep moving.',
-    course: [
-      { kind: 'wall',  x: 700,  w: 22, h: 60 },
-      { kind: 'wall',  x: 980,  w: 22, h: 80 },
-      { kind: 'wall',  x: 1260, w: 22, h: 60 },
-      { kind: 'net',   x: 1700, w: 340 },
-      { kind: 'wires', x: 2440, w: 40, h: 48 },
-      { kind: 'wires', x: 2695, w: 40, h: 48 },
-      { kind: 'wires', x: 2950, w: 40, h: 48 },
-      { kind: 'bars',  x: 3340, bars: 7 },
-      { kind: 'wall',  x: 4260, w: 22, h: 64 },
-      { kind: 'wall',  x: 4540, w: 22, h: 64 },
-      { kind: 'wires', x: 4860, w: 40, h: 48 },
-      { kind: 'wires', x: 5115, w: 40, h: 48 },
-      { kind: 'wall',  x: 5460, w: 30, h: 105 },
-      { kind: 'finish', x: 5820 },
-    ],
-  },
-  {
-    pal: 'morning',
-    title: 'Stage 3 · Dawn',
-    sub: 'One stage left. Bring it home.',
-    course: [
-      { kind: 'wall',  x: 680,  w: 22, h: 62 },
-      { kind: 'wall',  x: 940,  w: 22, h: 80 },
-      { kind: 'wall',  x: 1200, w: 22, h: 62 },
-      { kind: 'wires', x: 1520, w: 40, h: 50 },
-      { kind: 'wires', x: 1775, w: 40, h: 50 },
-      { kind: 'wires', x: 2030, w: 40, h: 50 },
-      { kind: 'net',   x: 2400, w: 380 },
-      { kind: 'bars',  x: 3120, bars: 8 },
-      { kind: 'wall',  x: 4180, w: 22, h: 66 },
-      { kind: 'wall',  x: 4440, w: 22, h: 66 },
-      { kind: 'wall',  x: 4700, w: 26, h: 92 },
-      { kind: 'wires', x: 5040, w: 40, h: 50 },
-      { kind: 'wires', x: 5295, w: 40, h: 50 },
-      { kind: 'wires', x: 5550, w: 40, h: 50 },
-      { kind: 'wall',  x: 5920, w: 32, h: 110 },
-      { kind: 'finish', x: 6280 },
-    ],
-  },
-];
-// derive bars-section width from bar count, across every stage
-for (const st of STAGES) {
-  for (const o of st.course) {
-    if (o.kind === 'bars') o.w = o.bars * BAR_GAP + 30;
+// --- stages: built from compact gap patterns so a double-length stage is
+// just the pattern played twice. `gap` is the distance from the previous
+// obstacle's x to this one's (it already absorbs a zone's own width when the
+// previous item was a net/bars). Spacings stay within jump limits: walls/coils
+// >= ~250 apart, net/bars approached with >= ~330 runway, heights <= ~110. ----
+function entry(kind, gap, props) { return Object.assign({ kind, gap }, props || {}); }
+
+// Lay a gap pattern out into absolute obstacles, then append the finish line.
+function buildCourse(pattern, finishPad) {
+  let x = 0;
+  const out = [];
+  for (const e of pattern) {
+    x += e.gap;
+    const o = { kind: e.kind, x };
+    if (e.kind === 'wall') { o.w = e.w || 22; o.h = e.h; }
+    else if (e.kind === 'wires') { o.w = 40; o.h = e.h || 50; }
+    else if (e.kind === 'net') { o.w = e.w || 320; }
+    else if (e.kind === 'bars') { o.bars = e.bars; o.w = e.bars * BAR_GAP + 30; }
+    out.push(o);
   }
+  out.push({ kind: 'finish', x: x + finishPad });
+  return out;
 }
+
+// Play a pattern twice (double-length stage). The second pass begins after
+// `seam` px of runway rather than the original lead-in.
+function doubled(pattern, seam) {
+  const tail = pattern.map((e, i) => (i === 0 ? Object.assign({}, e, { gap: seam }) : e));
+  return pattern.concat(tail);
+}
+
+const PAT_DAY = [
+  entry('wall', 720, { h: 56 }),
+  entry('wall', 300, { h: 72 }),
+  entry('net', 480, { w: 300 }),
+  entry('wall', 660, { h: 58 }),
+  entry('wall', 280, { h: 58 }),
+  entry('wall', 280, { h: 86 }),
+  entry('bars', 440, { bars: 6 }),
+  entry('wires', 760, { h: 48 }),
+  entry('wires', 255, { h: 48 }),
+  entry('wires', 255, { h: 48 }),
+  entry('wall', 450, { h: 100 }),
+];
+const PAT_NIGHT = [
+  entry('wall', 700, { h: 60 }),
+  entry('wall', 280, { h: 80 }),
+  entry('wall', 280, { h: 60 }),
+  entry('net', 440, { w: 340 }),
+  entry('wires', 740, { h: 48 }),
+  entry('wires', 255, { h: 48 }),
+  entry('wires', 255, { h: 48 }),
+  entry('bars', 390, { bars: 7 }),
+  entry('wall', 920, { h: 64 }),
+  entry('wall', 280, { h: 64 }),
+  entry('wires', 320, { h: 48 }),
+  entry('wires', 255, { h: 48 }),
+  entry('wall', 345, { h: 105 }),
+];
+const PAT_DAWN = [
+  entry('wall', 680, { h: 62 }),
+  entry('wall', 260, { h: 80 }),
+  entry('wall', 260, { h: 62 }),
+  entry('wires', 320, { h: 50 }),
+  entry('wires', 255, { h: 50 }),
+  entry('wires', 255, { h: 50 }),
+  entry('net', 370, { w: 380 }),
+  entry('bars', 720, { bars: 8 }),
+  entry('wall', 1060, { h: 66 }),
+  entry('wall', 260, { h: 66 }),
+  entry('wall', 260, { h: 92 }),
+  entry('wires', 340, { h: 50 }),
+  entry('wires', 255, { h: 50 }),
+  entry('wires', 255, { h: 50 }),
+  entry('wall', 370, { h: 110 }),
+];
+
+const STAGES = [
+  { pal: 'day',     title: 'Stage 1 · Day',   sub: 'High sun. Learn the course.',   course: buildCourse(doubled(PAT_DAY, 470), 360) },
+  { pal: 'night',   title: 'Stage 2 · Night', sub: 'The sun is down. Keep moving.', course: buildCourse(doubled(PAT_NIGHT, 470), 360) },
+  { pal: 'morning', title: 'Stage 3 · Dawn',  sub: 'One stage left. Bring it home.', course: buildCourse(doubled(PAT_DAWN, 470), 360) },
+];
 
 // --- state ------------------------------------------------------------
 const player = {
@@ -610,7 +619,7 @@ function render() {
   // parallax: castle far back at 0.18×, hills at 0.45×, ground at 1×.
   const scroll = Math.max(0, player.x - PLAYER_SX);
   drawSky();
-  drawCastle(-scroll * 0.18);
+  drawCastle(-scroll * 0.07);  // slow parallax so the far-right castle lingers
   drawHills(-scroll * 0.45);
   drawGround(-scroll);
   drawCourse(-scroll);
@@ -656,17 +665,19 @@ function drawCastle(ox) {
   ctx.save();
   ctx.translate(ox, 0);
   ctx.fillStyle = pal.castle;
-  // hill
-  ctx.beginPath();
+  // Castle sits far-right at each stage's start (scroll resets per stage) and
+  // drifts slowly left as a distant landmark you run toward.
+  const baseX = W * 0.74, baseW = 220, baseH = 70;
   const hillY = H * 0.66;
-  ctx.moveTo(W * 0.30, FLOOR_Y);
-  ctx.quadraticCurveTo(W * 0.55, hillY - 40, W * 0.78, hillY + 10);
-  ctx.lineTo(W * 0.92, FLOOR_Y);
+  const baseY = hillY - 18;
+  // hill mound beneath the castle
+  ctx.beginPath();
+  ctx.moveTo(baseX - 190, FLOOR_Y);
+  ctx.quadraticCurveTo(baseX + baseW / 2, hillY - 46, baseX + baseW + 170, FLOOR_Y);
   ctx.closePath();
   ctx.fill();
 
   // castle base
-  const baseX = W * 0.50, baseY = hillY - 18, baseW = 220, baseH = 70;
   ctx.fillRect(baseX, baseY, baseW, baseH);
   // crenellations on base
   for (let i = 0; i < 11; i++) {
