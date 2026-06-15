@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>The OCR Report — The Trial</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: #000;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #e8edf2;
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #root {
+      position: relative;
+      width: 100%; height: 100%;
+      max-width: 100vw; max-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #stage {
+      position: relative;
+      width: 100%; height: 100%;
+      aspect-ratio: 16 / 9;
+      max-width: min(100vw, calc(100vh * 16 / 9));
+      max-height: min(100vh, calc(100vw * 9 / 16));
+    }
+    canvas {
+      display: block;
+      width: 100%; height: 100%;
+      background: linear-gradient(to bottom, #1a2330 0%, #2e3d4f 65%, #3b4a5d 100%);
+    }
+    .overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 6%;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(2px);
+      transition: opacity .25s ease;
+    }
+    .overlay.hidden { opacity: 0; pointer-events: none; }
+    h1, h2 {
+      margin: 0 0 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    h1 { font-size: clamp(28px, 4vw, 52px); }
+    h2 { font-size: clamp(22px, 3vw, 40px); }
+    p { margin: 6px 0; font-size: clamp(13px, 1.4vw, 17px); color: #cbd5e0; line-height: 1.45; max-width: 540px; }
+    .controls {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 4px 18px;
+      margin: 16px 0 22px;
+      font-size: clamp(12px, 1.3vw, 16px);
+      text-align: left;
+    }
+    .controls dt { font-weight: 700; color: #f0b400; letter-spacing: 0.1em; text-transform: uppercase; }
+    .controls dd { margin: 0; color: #cbd5e0; }
+    button.cta {
+      margin-top: 10px;
+      background: #f0b400; color: #1a1207;
+      border: none; border-radius: 4px;
+      font-weight: 800; letter-spacing: 0.2em;
+      padding: 14px 28px;
+      cursor: pointer;
+      font-size: clamp(13px, 1.4vw, 17px);
+      text-transform: uppercase;
+    }
+    button.cta:hover { background: #ffc41a; }
+    .hint { color: #9fb0bf; font-size: 0.85em; margin-top: 6px; }
+    .dead-cause { color: #f06595; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    #piece {
+      max-width: 80%; max-height: 60vh;
+      margin: 12px 0;
+      border: 2px solid #f0b400;
+      border-radius: 4px;
+      background: #0c1014;
+      object-fit: contain;
+    }
+    .placeholder {
+      display: flex; align-items: center; justify-content: center;
+      width: min(420px, 70%); aspect-ratio: 1 / 1;
+      border: 2px dashed #f0b400;
+      border-radius: 4px;
+      color: #f0b400;
+      font-size: clamp(11px, 1.2vw, 14px);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 20px;
+      margin: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div id="stage">
+      <canvas id="game" width="960" height="540"></canvas>
+
+      <div id="screen-start" class="overlay">
+        <h1>The Trial</h1>
+        <p>Belvoir Castle. Five obstacles. One life.</p>
+        <dl class="controls">
+          <dt>Tap</dt><dd>Jump walls and electric grids.</dd>
+          <dt>Hold</dt><dd>Climb the cargo net. Let go and you fall.</dd>
+          <dt>Tap rhythm</dt><dd>Swing the monkey bars. Miss the beat and you fall.</dd>
+        </dl>
+        <button class="cta" id="btn-start">Begin</button>
+        <p class="hint">space / tap to start</p>
+      </div>
+
+      <div id="screen-dead" class="overlay hidden">
+        <h2>Down.</h2>
+        <p class="dead-cause" id="dead-cause">—</p>
+        <p id="dead-stat">Attempt 1 · 0 m</p>
+        <button class="cta" id="btn-retry">Try Again</button>
+        <p class="hint">space / tap to retry</p>
+      </div>
+
+      <div id="screen-won" class="overlay hidden">
+        <h2>You earned it.</h2>
+        <img id="piece" alt="Puzzle piece" />
+        <div id="piece-placeholder" class="placeholder" hidden>
+          puzzle piece slot · drop image at <br/><code style="color:#cbd5e0">data/puzzle-piece-1.png</code>
+        </div>
+        <p class="hint">share the find. clue for the next piece coming soon.</p>
+        <button class="cta" id="btn-play-again">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+'use strict';
+
+// =====================================================================
+// THE TRIAL — silhouette side-scroller for The OCR Report's WTM 2026 hub.
+// Drop into a WordPress Custom HTML block as <iframe src="...wtm-runner.html">
+// or open standalone. Puzzle piece reveals on win and persists in localStorage.
+// =====================================================================
+
+const PUZZLE_PIECE_URL = 'data/puzzle-piece-1.png'; // swap in the real piece
+const WON_STORAGE_KEY = 'wtmTrialWon_v1';
+const ATTEMPT_STORAGE_KEY = 'wtmTrialAttempts_v1';
+
+// --- canvas -----------------------------------------------------------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;   // 960 logical
+const H = canvas.height;  // 540 logical
+
+// --- world constants --------------------------------------------------
+const FLOOR_Y = H - 70;
+const PLAYER_SX = 200;            // player's fixed x on screen
+const PLAYER_W = 26;
+const PLAYER_H = 50;
+const RUN_SPEED = 300;            // world px / s
+const GRAVITY = 2400;             // px / s²
+const JUMP_VY = -900;
+const CLIMB_VY = -160;            // upward speed while holding on net
+const CLIMB_FORWARD = 80;         // forward speed while climbing
+const FALL_VY_MAX = 1800;
+const BAR_TIMEOUT = 0.55;         // s without tap → fall
+const BAR_GAP = 78;               // px between bars
+const HANG_Y = FLOOR_Y - 170;     // y of feet while hanging (top of player)
+const NET_TOP_Y = FLOOR_Y - 140;  // top of cargo net
+
+// --- course (sized for ~22s perfect run; relentless rhythm) ----------
+// Each obstacle: { kind, x, ...properties }. Sections (net, bars) are zones.
+const COURSE = [
+  { kind: 'wall',  x: 720,  w: 22, h: 56 },
+  { kind: 'wall',  x: 1020, w: 22, h: 72 },
+  { kind: 'net',   x: 1500, w: 300 },
+  { kind: 'wall',  x: 2120, w: 22, h: 58 },
+  { kind: 'wall',  x: 2340, w: 22, h: 58 },
+  { kind: 'wall',  x: 2560, w: 22, h: 84 },
+  { kind: 'bars',  x: 3000, bars: 6 }, // pit length derived from bar count
+  { kind: 'wires', x: 3700, w: 14, h: 220 },
+  { kind: 'wires', x: 3820, w: 14, h: 220 },
+  { kind: 'wires', x: 3940, w: 14, h: 220 },
+  { kind: 'wires', x: 4060, w: 14, h: 220 },
+  { kind: 'wall',  x: 4520, w: 30, h: 110 },
+  { kind: 'finish', x: 4900 },
+];
+// derive bars width
+for (const o of COURSE) {
+  if (o.kind === 'bars') { o.w = o.bars * BAR_GAP + 30; }
+}
+
+// --- state ------------------------------------------------------------
+const player = {
+  x: 0, y: FLOOR_Y - PLAYER_H, vy: 0,
+  mode: 'ground',    // ground | air | climb | hang | falling
+  runFrame: 0,
+  barIdx: 0,
+  lastTap: 0,
+  netEnterX: 0,
+};
+const input = { held: false, pressed: false, prev: false };
+let phase = 'start';           // start | running | dead | won
+let attempts = 0;
+let elapsed = 0;
+let deadCause = '';
+let activeOverlay = 'start';
+
+// --- input ------------------------------------------------------------
+function setHeld(v) { input.held = !!v; }
+function onKeyDown(e) {
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+    e.preventDefault();
+    setHeld(true);
+  }
+}
+function onKeyUp(e) {
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+    setHeld(false);
+  }
+}
+window.addEventListener('keydown', onKeyDown);
+window.addEventListener('keyup', onKeyUp);
+canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); setHeld(true); });
+window.addEventListener('pointerup', () => setHeld(false));
+window.addEventListener('pointercancel', () => setHeld(false));
+window.addEventListener('blur', () => setHeld(false));
+
+// --- overlays ---------------------------------------------------------
+const overlays = {
+  start: document.getElementById('screen-start'),
+  dead:  document.getElementById('screen-dead'),
+  won:   document.getElementById('screen-won'),
+};
+function showOverlay(name) {
+  activeOverlay = name;
+  for (const k in overlays) overlays[k].classList.toggle('hidden', k !== name);
+}
+document.getElementById('btn-start').addEventListener('click', () => beginRun());
+document.getElementById('btn-retry').addEventListener('click', () => beginRun());
+document.getElementById('btn-play-again').addEventListener('click', () => beginRun(true));
+
+// --- win persistence --------------------------------------------------
+try { attempts = parseInt(localStorage.getItem(ATTEMPT_STORAGE_KEY) || '0', 10) || 0; } catch {}
+function recordAttempt() {
+  try { localStorage.setItem(ATTEMPT_STORAGE_KEY, String(attempts)); } catch {}
+}
+function alreadyWon() {
+  try { return localStorage.getItem(WON_STORAGE_KEY) === '1'; } catch { return false; }
+}
+function markWon() {
+  try { localStorage.setItem(WON_STORAGE_KEY, '1'); } catch {}
+}
+
+// --- puzzle piece loading ---------------------------------------------
+const pieceImg = document.getElementById('piece');
+const piecePlaceholder = document.getElementById('piece-placeholder');
+pieceImg.addEventListener('error', () => {
+  pieceImg.hidden = true;
+  piecePlaceholder.hidden = false;
+});
+function loadPuzzlePiece() {
+  pieceImg.hidden = false;
+  piecePlaceholder.hidden = true;
+  pieceImg.src = PUZZLE_PIECE_URL + '?t=' + Date.now();
+}
+
+// --- life cycle -------------------------------------------------------
+function beginRun(force) {
+  if (alreadyWon() && !force) { showWon(); return; }
+  attempts += 1;
+  recordAttempt();
+  player.x = 0;
+  player.y = FLOOR_Y - PLAYER_H;
+  player.vy = 0;
+  player.mode = 'ground';
+  player.runFrame = 0;
+  player.barIdx = 0;
+  player.lastTap = 0;
+  elapsed = 0;
+  deadCause = '';
+  phase = 'running';
+  showOverlay(null);
+}
+function die(cause) {
+  if (phase !== 'running') return;
+  phase = 'dead';
+  deadCause = cause;
+  document.getElementById('dead-cause').textContent = cause;
+  document.getElementById('dead-stat').textContent =
+    'Attempt ' + attempts + ' · ' + Math.floor(player.x) + ' m';
+  showOverlay('dead');
+}
+function showWon() {
+  phase = 'won';
+  loadPuzzlePiece();
+  showOverlay('won');
+}
+
+// On first load: if they've already won, go straight to the piece reveal.
+if (alreadyWon()) showWon();
+
+// --- update -----------------------------------------------------------
+function approachZone(kind, x) {
+  // Return the first obstacle of kind whose zone the player is inside, else null.
+  for (const o of COURSE) {
+    if (o.kind !== kind) continue;
+    if (x >= o.x && x < o.x + o.w) return o;
+  }
+  return null;
+}
+
+function update(dt) {
+  if (phase !== 'running') return;
+  elapsed += dt;
+
+  // input edge detection
+  input.pressed = input.held && !input.prev;
+  input.prev = input.held;
+
+  // run animation tick (visual only)
+  player.runFrame = (player.runFrame + dt * 12) % 4;
+
+  switch (player.mode) {
+    case 'ground': {
+      // forward run
+      player.x += RUN_SPEED * dt;
+      // jump?
+      if (input.pressed) {
+        player.vy = JUMP_VY;
+        player.mode = 'air';
+      }
+      // enter cargo net? Must already be holding the button.
+      const net = approachZone('net', player.x);
+      if (net) {
+        if (input.held) {
+          player.mode = 'climb';
+          player.netEnterX = net.x;
+        } else {
+          die('cargo net · you didn’t grab on');
+        }
+      }
+      // enter monkey bars? auto-grab if you're holding (else die in pit).
+      const bars = approachZone('bars', player.x);
+      if (bars) {
+        if (input.held) {
+          player.mode = 'hang';
+          player.barIdx = 0;
+          player.lastTap = elapsed;
+          // snap to first bar position
+          player.x = bars.x + 15;
+          player.y = HANG_Y;
+        } else {
+          die('monkey bars · you didn’t grab on');
+        }
+      }
+      break;
+    }
+
+    case 'air': {
+      player.x += RUN_SPEED * dt;
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+      if (player.y >= FLOOR_Y - PLAYER_H) {
+        player.y = FLOOR_Y - PLAYER_H;
+        player.vy = 0;
+        player.mode = 'ground';
+      }
+      break;
+    }
+
+    case 'climb': {
+      // Player is in the net zone. Holding climbs up the slope; releasing
+      // falls. Reaching the far edge drops them back onto the ground.
+      const net = approachZone('net', player.x);
+      if (!net) {
+        // crossed the net — descend to floor
+        player.mode = 'air';
+        break;
+      }
+      if (!input.held) {
+        die('cargo net · you let go');
+        break;
+      }
+      // forward + upward along net diagonal
+      player.x += CLIMB_FORWARD * dt;
+      player.y += CLIMB_VY * dt;
+      // clamp y to net peak (top of net at NET_TOP_Y - PLAYER_H)
+      const peakY = NET_TOP_Y - PLAYER_H;
+      if (player.y < peakY) player.y = peakY;
+      break;
+    }
+
+    case 'hang': {
+      // Each pressed tap advances one bar. Too long without a tap → fall.
+      const bars = approachZone('bars', player.x);
+      if (input.pressed) {
+        player.barIdx += 1;
+        player.lastTap = elapsed;
+        player.x += BAR_GAP;
+        if (!bars || player.barIdx >= bars.bars) {
+          // off the end — drop and resume run
+          player.mode = 'air';
+          player.vy = 0;
+        }
+      } else if (elapsed - player.lastTap > BAR_TIMEOUT) {
+        die('monkey bars · you fell');
+      }
+      break;
+    }
+  }
+
+  // collision with kill-on-contact obstacles (walls, wires)
+  if (phase === 'running' && (player.mode === 'ground' || player.mode === 'air')) {
+    for (const o of COURSE) {
+      if (o.kind !== 'wall' && o.kind !== 'wires') continue;
+      const ox = o.x, oy = FLOOR_Y - o.h, ow = o.w, oh = o.h;
+      const px = player.x - PLAYER_W / 2, py = player.y, pw = PLAYER_W, ph = PLAYER_H;
+      if (px + pw > ox && px < ox + ow && py + ph > oy && py < oy + oh) {
+        die(o.kind === 'wires' ? 'electric grid · zapped' : 'wall · clipped');
+        return;
+      }
+    }
+  }
+
+  // finish line
+  for (const o of COURSE) {
+    if (o.kind === 'finish' && player.x >= o.x) {
+      markWon();
+      showWon();
+      return;
+    }
+  }
+}
+
+// --- render -----------------------------------------------------------
+function render() {
+  // sky already painted as canvas CSS background; clear with semi-transparent
+  ctx.clearRect(0, 0, W, H);
+
+  // parallax: castle far back at 0.18×, hills at 0.45×, ground at 1×.
+  const scroll = Math.max(0, player.x - PLAYER_SX);
+  drawSky();
+  drawCastle(-scroll * 0.18);
+  drawHills(-scroll * 0.45);
+  drawGround(-scroll);
+  drawCourse(-scroll);
+  drawPlayer();
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#1a2330');
+  g.addColorStop(0.7, '#2e3d4f');
+  g.addColorStop(1, '#3b4a5d');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // distant sun glow behind castle
+  const cx = W * 0.62, cy = H * 0.42;
+  const sun = ctx.createRadialGradient(cx, cy, 10, cx, cy, 220);
+  sun.addColorStop(0, 'rgba(240, 180, 0, 0.35)');
+  sun.addColorStop(1, 'rgba(240, 180, 0, 0)');
+  ctx.fillStyle = sun;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// Belvoir-flavored castle silhouette: hilltop with central keep, flanking
+// turrets, crenellations. Drawn on the parallax layer.
+function drawCastle(ox) {
+  ctx.save();
+  ctx.translate(ox, 0);
+  ctx.fillStyle = '#0e1620';
+  // hill
+  ctx.beginPath();
+  const hillY = H * 0.66;
+  ctx.moveTo(W * 0.30, FLOOR_Y);
+  ctx.quadraticCurveTo(W * 0.55, hillY - 40, W * 0.78, hillY + 10);
+  ctx.lineTo(W * 0.92, FLOOR_Y);
+  ctx.closePath();
+  ctx.fill();
+
+  // castle base
+  const baseX = W * 0.50, baseY = hillY - 18, baseW = 220, baseH = 70;
+  ctx.fillRect(baseX, baseY, baseW, baseH);
+  // crenellations on base
+  for (let i = 0; i < 11; i++) {
+    if (i % 2 === 0) ctx.fillRect(baseX + i * 20, baseY - 8, 14, 8);
+  }
+  // central keep
+  const kx = baseX + baseW * 0.42, ky = baseY - 70, kw = 50, kh = 70;
+  ctx.fillRect(kx, ky, kw, kh);
+  for (let i = 0; i < 3; i++) ctx.fillRect(kx + i * 18 + 2, ky - 8, 12, 8);
+  // little spire on top of keep
+  ctx.beginPath();
+  ctx.moveTo(kx + kw / 2 - 6, ky - 8);
+  ctx.lineTo(kx + kw / 2, ky - 28);
+  ctx.lineTo(kx + kw / 2 + 6, ky - 8);
+  ctx.closePath();
+  ctx.fill();
+  // left turret
+  ctx.fillRect(baseX - 4, baseY - 36, 24, 36);
+  ctx.fillRect(baseX - 6, baseY - 44, 28, 10);
+  // right turret
+  ctx.fillRect(baseX + baseW - 20, baseY - 28, 22, 28);
+  ctx.fillRect(baseX + baseW - 22, baseY - 36, 26, 10);
+  // flag pole + flag (subtle motion via elapsed)
+  const flagX = kx + kw / 2;
+  const flagY = ky - 28;
+  ctx.fillRect(flagX - 1, flagY - 22, 2, 22);
+  ctx.beginPath();
+  const wave = Math.sin(elapsed * 4) * 2;
+  ctx.moveTo(flagX, flagY - 22);
+  ctx.lineTo(flagX + 16, flagY - 18 + wave);
+  ctx.lineTo(flagX, flagY - 14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawHills(ox) {
+  ctx.save();
+  ctx.translate(ox, 0);
+  ctx.fillStyle = '#162130';
+  // a couple of mid-distance hills tiled across a wider span
+  const span = W * 2;
+  for (let i = -1; i < 3; i++) {
+    const baseX = i * span;
+    ctx.beginPath();
+    ctx.moveTo(baseX, FLOOR_Y);
+    ctx.quadraticCurveTo(baseX + span * 0.25, FLOOR_Y - 90, baseX + span * 0.5, FLOOR_Y - 30);
+    ctx.quadraticCurveTo(baseX + span * 0.75, FLOOR_Y - 110, baseX + span, FLOOR_Y - 20);
+    ctx.lineTo(baseX + span, FLOOR_Y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // foreground trees as silhouettes
+  ctx.fillStyle = '#0c1219';
+  for (let i = -1; i < 6; i++) {
+    const tx = (i * 280 + (ox % 280)) % (W + 600) - 100;
+    drawTree(tx + 40, FLOOR_Y);
+  }
+  ctx.restore();
+}
+function drawTree(x, baseY) {
+  ctx.beginPath();
+  ctx.moveTo(x - 14, baseY);
+  ctx.lineTo(x, baseY - 55);
+  ctx.lineTo(x + 14, baseY);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawGround(ox) {
+  // ground band
+  ctx.fillStyle = '#070b10';
+  ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
+  // a brighter top edge line
+  ctx.fillStyle = '#1d2832';
+  ctx.fillRect(0, FLOOR_Y, W, 2);
+
+  // pits beneath any bars section
+  for (const o of COURSE) {
+    if (o.kind !== 'bars') continue;
+    const sx = o.x + ox;
+    if (sx + o.w < 0 || sx > W) continue;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(sx, FLOOR_Y, o.w, H - FLOOR_Y);
+    ctx.fillStyle = '#1d2832';
+    ctx.fillRect(sx, FLOOR_Y, o.w, 2);
+  }
+}
+
+function drawCourse(ox) {
+  for (const o of COURSE) {
+    const sx = o.x + ox;
+    if (sx + (o.w || 30) < -100 || sx > W + 100) continue;
+    if (o.kind === 'wall') drawWall(sx, o.w, o.h);
+    else if (o.kind === 'net') drawNet(sx, o.w);
+    else if (o.kind === 'bars') drawBars(sx, o);
+    else if (o.kind === 'wires') drawWires(sx, o.w, o.h);
+    else if (o.kind === 'finish') drawFinish(sx);
+  }
+}
+function drawWall(x, w, h) {
+  ctx.fillStyle = '#0a0f15';
+  ctx.fillRect(x, FLOOR_Y - h, w, h);
+  // top accent
+  ctx.fillStyle = '#1d2832';
+  ctx.fillRect(x, FLOOR_Y - h, w, 2);
+}
+function drawNet(x, w) {
+  ctx.save();
+  ctx.strokeStyle = '#0a0f15';
+  ctx.lineWidth = 2;
+  // posts
+  ctx.fillStyle = '#0a0f15';
+  ctx.fillRect(x - 4, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
+  ctx.fillRect(x + w - 2, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
+  // top rope
+  ctx.fillRect(x, NET_TOP_Y, w, 4);
+  // net grid: diagonal lines forming diamonds
+  const gridY0 = NET_TOP_Y + 4;
+  const gridY1 = FLOOR_Y - 2;
+  const step = 22;
+  ctx.beginPath();
+  for (let i = -step; i < w + (gridY1 - gridY0); i += step) {
+    ctx.moveTo(x + i, gridY0);
+    ctx.lineTo(x + i + (gridY1 - gridY0), gridY1);
+    ctx.moveTo(x + i, gridY1);
+    ctx.lineTo(x + i + (gridY1 - gridY0), gridY0);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+function drawBars(x, o) {
+  // overhead rail with hanging bars
+  const railY = HANG_Y - 14;
+  ctx.fillStyle = '#0a0f15';
+  ctx.fillRect(x, railY, o.w, 6);
+  // posts
+  ctx.fillRect(x - 4, railY - 30, 6, 30);
+  ctx.fillRect(x + o.w - 2, railY - 30, 6, 30);
+  // hanging bars
+  for (let i = 0; i < o.bars; i++) {
+    const bx = x + 15 + i * BAR_GAP;
+    ctx.fillRect(bx - 2, railY + 6, 4, 24);
+    ctx.fillRect(bx - 12, railY + 28, 24, 4);
+  }
+}
+function drawWires(x, w, h) {
+  // vertical post with electric arc
+  ctx.fillStyle = '#0a0f15';
+  ctx.fillRect(x, FLOOR_Y - h, w, h);
+  // arc — animated zig-zag
+  ctx.strokeStyle = 'rgba(240, 180, 0, 0.85)';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  const t = elapsed * 14;
+  let px = x + w + 2;
+  let py = FLOOR_Y - h + 10;
+  ctx.moveTo(px, py);
+  for (let i = 0; i < 12; i++) {
+    py += (h - 20) / 12;
+    px = x + w + 2 + Math.sin(t + i * 1.2) * 6;
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+function drawFinish(x) {
+  // checkered post
+  const poleW = 6, poleH = 130;
+  ctx.fillStyle = '#0a0f15';
+  ctx.fillRect(x, FLOOR_Y - poleH, poleW, poleH);
+  // banner
+  const bw = 80, bh = 36;
+  ctx.fillStyle = '#f0b400';
+  ctx.fillRect(x + poleW, FLOOR_Y - poleH, bw, bh);
+  ctx.fillStyle = '#1a1207';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('FINISH', x + poleW + bw / 2, FLOOR_Y - poleH + bh / 2);
+}
+
+function drawPlayer() {
+  const px = PLAYER_SX, py = player.y;
+  ctx.fillStyle = '#0a0f15';
+  ctx.strokeStyle = '#0a0f15';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+
+  // body
+  const bodyX = px, bodyTop = py + 12, bodyBot = py + PLAYER_H - 16;
+  ctx.beginPath();
+  ctx.moveTo(bodyX, bodyTop);
+  ctx.lineTo(bodyX, bodyBot);
+  ctx.stroke();
+  // head
+  ctx.beginPath();
+  ctx.arc(bodyX, py + 8, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // limbs depend on mode
+  if (player.mode === 'ground') {
+    const f = Math.floor(player.runFrame);
+    const legSwing = [10, 4, -10, 4][f];
+    // legs
+    ctx.beginPath();
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX + legSwing, py + PLAYER_H);
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX - legSwing, py + PLAYER_H);
+    ctx.stroke();
+    // arms
+    ctx.beginPath();
+    ctx.moveTo(bodyX, bodyTop + 4);
+    ctx.lineTo(bodyX - legSwing * 0.8, bodyTop + 18);
+    ctx.moveTo(bodyX, bodyTop + 4);
+    ctx.lineTo(bodyX + legSwing * 0.8, bodyTop + 18);
+    ctx.stroke();
+  } else if (player.mode === 'air') {
+    // tucked
+    ctx.beginPath();
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX + 10, py + PLAYER_H - 4);
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX - 10, py + PLAYER_H - 4);
+    // arms forward
+    ctx.moveTo(bodyX, bodyTop + 4);
+    ctx.lineTo(bodyX + 14, bodyTop + 10);
+    ctx.moveTo(bodyX, bodyTop + 4);
+    ctx.lineTo(bodyX - 6, bodyTop + 14);
+    ctx.stroke();
+  } else if (player.mode === 'climb') {
+    // body angled, arms up
+    ctx.beginPath();
+    ctx.moveTo(bodyX - 4, bodyTop);
+    ctx.lineTo(bodyX + 4, bodyBot);
+    // arms up
+    ctx.moveTo(bodyX - 2, bodyTop + 4);
+    ctx.lineTo(bodyX - 12, bodyTop - 12);
+    ctx.moveTo(bodyX - 2, bodyTop + 4);
+    ctx.lineTo(bodyX + 12, bodyTop - 16);
+    // legs angled
+    ctx.moveTo(bodyX + 4, bodyBot);
+    ctx.lineTo(bodyX + 14, py + PLAYER_H);
+    ctx.moveTo(bodyX + 4, bodyBot);
+    ctx.lineTo(bodyX - 6, py + PLAYER_H);
+    ctx.stroke();
+  } else if (player.mode === 'hang') {
+    // arms up to bar, legs dangling with slight swing
+    const swing = Math.sin((elapsed - player.lastTap) * 12) * 6;
+    ctx.beginPath();
+    // arms up
+    ctx.moveTo(bodyX, bodyTop + 2);
+    ctx.lineTo(bodyX - 4, bodyTop - 18);
+    ctx.moveTo(bodyX, bodyTop + 2);
+    ctx.lineTo(bodyX + 4, bodyTop - 18);
+    // legs
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX + swing, py + PLAYER_H);
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX - swing, py + PLAYER_H);
+    ctx.stroke();
+  }
+}
+
+// --- loop -------------------------------------------------------------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
