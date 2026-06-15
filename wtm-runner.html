@@ -179,16 +179,15 @@ const COURSE = [
   { kind: 'wall',  x: 720,  w: 22, h: 56 },
   { kind: 'wall',  x: 1020, w: 22, h: 72 },
   { kind: 'net',   x: 1500, w: 300 },
-  { kind: 'wall',  x: 2120, w: 22, h: 58 },
-  { kind: 'wall',  x: 2340, w: 22, h: 58 },
-  { kind: 'wall',  x: 2560, w: 22, h: 84 },
-  { kind: 'bars',  x: 3000, bars: 6 }, // pit length derived from bar count
-  { kind: 'wires', x: 3700, w: 14, h: 220 },
-  { kind: 'wires', x: 3820, w: 14, h: 220 },
-  { kind: 'wires', x: 3940, w: 14, h: 220 },
-  { kind: 'wires', x: 4060, w: 14, h: 220 },
-  { kind: 'wall',  x: 4520, w: 30, h: 110 },
-  { kind: 'finish', x: 4900 },
+  { kind: 'wall',  x: 2160, w: 22, h: 58 },
+  { kind: 'wall',  x: 2440, w: 22, h: 58 },
+  { kind: 'wall',  x: 2720, w: 26, h: 86 },
+  { kind: 'bars',  x: 3160, bars: 6 }, // pit length derived from bar count
+  { kind: 'wires', x: 3920, w: 40, h: 48 },
+  { kind: 'wires', x: 4175, w: 40, h: 48 },
+  { kind: 'wires', x: 4430, w: 40, h: 48 },
+  { kind: 'wall',  x: 4880, w: 30, h: 100 },
+  { kind: 'finish', x: 5240 },
 ];
 // derive bars width
 for (const o of COURSE) {
@@ -596,24 +595,28 @@ function drawWall(x, w, h) {
 }
 function drawNet(x, w) {
   ctx.save();
-  ctx.strokeStyle = '#0a0f15';
-  ctx.lineWidth = 2;
-  // posts
   ctx.fillStyle = '#0a0f15';
+  // posts
   ctx.fillRect(x - 4, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
   ctx.fillRect(x + w - 2, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
   // top rope
   ctx.fillRect(x, NET_TOP_Y, w, 4);
-  // net grid: diagonal lines forming diamonds
+  // mesh — clipped to the net rectangle so diagonals never spill past the posts
   const gridY0 = NET_TOP_Y + 4;
-  const gridY1 = FLOOR_Y - 2;
-  const step = 22;
+  const gridY1 = FLOOR_Y;
+  const span = gridY1 - gridY0;
+  const step = 20;
   ctx.beginPath();
-  for (let i = -step; i < w + (gridY1 - gridY0); i += step) {
+  ctx.rect(x, gridY0, w, span);
+  ctx.clip();
+  ctx.strokeStyle = '#0a0f15';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = -span; i <= w + span; i += step) {
     ctx.moveTo(x + i, gridY0);
-    ctx.lineTo(x + i + (gridY1 - gridY0), gridY1);
-    ctx.moveTo(x + i, gridY1);
-    ctx.lineTo(x + i + (gridY1 - gridY0), gridY0);
+    ctx.lineTo(x + i + span, gridY1); // down-right
+    ctx.moveTo(x + i, gridY0);
+    ctx.lineTo(x + i - span, gridY1); // down-left
   }
   ctx.stroke();
   ctx.restore();
@@ -634,20 +637,25 @@ function drawBars(x, o) {
   }
 }
 function drawWires(x, w, h) {
-  // vertical post with electric arc
+  // low electrified coil you hop. Short posts, crossbar, arcing top wire.
+  const topY = FLOOR_Y - h;
   ctx.fillStyle = '#0a0f15';
-  ctx.fillRect(x, FLOOR_Y - h, w, h);
-  // arc — animated zig-zag
-  ctx.strokeStyle = 'rgba(240, 180, 0, 0.85)';
-  ctx.lineWidth = 1.6;
+  ctx.fillRect(x, topY, 4, h);
+  ctx.fillRect(x + w - 4, topY, 4, h);
+  ctx.fillRect(x, topY, w, 4);
+  // soft glow band over the bar
+  ctx.fillStyle = 'rgba(240, 180, 0, 0.12)';
+  ctx.fillRect(x - 4, topY - 6, w + 8, 12);
+  // animated electric arc along the top
+  ctx.strokeStyle = 'rgba(240, 180, 0, 0.9)';
+  ctx.lineWidth = 1.8;
   ctx.beginPath();
-  const t = elapsed * 14;
-  let px = x + w + 2;
-  let py = FLOOR_Y - h + 10;
-  ctx.moveTo(px, py);
-  for (let i = 0; i < 12; i++) {
-    py += (h - 20) / 12;
-    px = x + w + 2 + Math.sin(t + i * 1.2) * 6;
+  const t = elapsed * 16;
+  const segs = 8;
+  ctx.moveTo(x, topY + 2);
+  for (let i = 1; i <= segs; i++) {
+    const px = x + (w * i) / segs;
+    const py = topY + 2 + Math.sin(t + i) * 5;
     ctx.lineTo(px, py);
   }
   ctx.stroke();
