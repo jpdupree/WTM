@@ -33,7 +33,7 @@
     canvas {
       display: block;
       width: 100%; height: 100%;
-      background: linear-gradient(to bottom, #1a2330 0%, #2e3d4f 65%, #3b4a5d 100%);
+      background: #0a1119;
     }
     .overlay {
       position: absolute; inset: 0;
@@ -108,9 +108,9 @@
 
       <div id="screen-start" class="overlay">
         <h1>The Trial</h1>
-        <p>Belvoir Castle. Five obstacles. One life.</p>
+        <p>Belvoir Castle. Three stages — day, night, dawn. One life all the way through.</p>
         <dl class="controls">
-          <dt>Tap</dt><dd>Jump walls and electric grids.</dd>
+          <dt>Tap</dt><dd>Jump walls and electric coils.</dd>
           <dt>Hold</dt><dd>Climb the cargo net. Let go and you fall.</dd>
           <dt>Tap rhythm</dt><dd>Swing the monkey bars. Miss the beat and you fall.</dd>
         </dl>
@@ -118,12 +118,19 @@
         <p class="hint">space / tap to start</p>
       </div>
 
+      <div id="screen-stage" class="overlay hidden">
+        <h2 id="stage-title">Stage 2 · Night</h2>
+        <p id="stage-sub">The sun is down. Keep moving.</p>
+        <button class="cta" id="btn-continue">Continue</button>
+        <p class="hint">space / tap to continue</p>
+      </div>
+
       <div id="screen-dead" class="overlay hidden">
         <h2>Down.</h2>
         <p class="dead-cause" id="dead-cause">—</p>
-        <p id="dead-stat">Attempt 1 · 0 m</p>
+        <p id="dead-stat">Attempt 1</p>
         <button class="cta" id="btn-retry">Try Again</button>
-        <p class="hint">space / tap to retry</p>
+        <p class="hint">one life — back to the start. space / tap to retry</p>
       </div>
 
       <div id="screen-won" class="overlay hidden">
@@ -173,25 +180,115 @@ const BAR_GAP = 78;               // px between bars
 const HANG_Y = FLOOR_Y - 170;     // y of feet while hanging (top of player)
 const NET_TOP_Y = FLOOR_Y - 140;  // top of cargo net
 
-// --- course (sized for ~22s perfect run; relentless rhythm) ----------
-// Each obstacle: { kind, x, ...properties }. Sections (net, bars) are zones.
-const COURSE = [
-  { kind: 'wall',  x: 720,  w: 22, h: 56 },
-  { kind: 'wall',  x: 1020, w: 22, h: 72 },
-  { kind: 'net',   x: 1500, w: 300 },
-  { kind: 'wall',  x: 2160, w: 22, h: 58 },
-  { kind: 'wall',  x: 2440, w: 22, h: 58 },
-  { kind: 'wall',  x: 2720, w: 26, h: 86 },
-  { kind: 'bars',  x: 3160, bars: 6 }, // pit length derived from bar count
-  { kind: 'wires', x: 3920, w: 40, h: 48 },
-  { kind: 'wires', x: 4175, w: 40, h: 48 },
-  { kind: 'wires', x: 4430, w: 40, h: 48 },
-  { kind: 'wall',  x: 4880, w: 30, h: 100 },
-  { kind: 'finish', x: 5240 },
+// --- palettes (one per time-of-day stage) ----------------------------
+const PALETTES = {
+  day: {
+    sky: ['#5b9bd5', '#8fc0e8', '#cfe4f3'],
+    light: { x: 0.70, y: 0.16, r: 240, glow: 'rgba(255,247,214,0.55)', core: '#fff7d6', coreR: 26 },
+    stars: 0,
+    castle: '#16242f',
+    hill: '#16242f',
+    fg: '#0e1a26',          // near silhouettes: course, trees, player
+    ground: '#0a1119',
+    edge: '#243240',
+    arc: 'rgba(120,200,255,0.9)',
+  },
+  night: {
+    sky: ['#05080f', '#0b1422', '#16243a'],
+    light: { x: 0.72, y: 0.20, r: 150, glow: 'rgba(200,215,240,0.30)', core: '#e6edf7', coreR: 20 },
+    stars: 70,
+    castle: '#0d1822',
+    hill: '#0c1626',
+    fg: '#070d15',
+    ground: '#05090f',
+    edge: '#2c3c54',        // brighter edges so obstacles read in the dark
+    arc: 'rgba(245,200,40,1)',
+  },
+  morning: {
+    sky: ['#7c93b8', '#e8a574', '#f6c98a'],
+    light: { x: 0.50, y: 0.60, r: 300, glow: 'rgba(255,200,130,0.5)', core: '#ffe1ad', coreR: 34 },
+    stars: 0,
+    castle: '#2a1f17',
+    hill: '#241a13',
+    fg: '#1c1410',
+    ground: '#0f0a06',
+    edge: '#3a2c20',
+    arc: 'rgba(255,170,60,0.95)',
+  },
+};
+
+// --- stages (sized within jump limits: heights <= ~110, jump gaps >= ~250,
+// net/bars approaches have runway to switch tap<->hold). Difficulty rises. ----
+const STAGES = [
+  {
+    pal: 'day',
+    title: 'Stage 1 · Day',
+    sub: 'High sun. Learn the course.',
+    course: [
+      { kind: 'wall',  x: 720,  w: 22, h: 56 },
+      { kind: 'wall',  x: 1020, w: 22, h: 72 },
+      { kind: 'net',   x: 1500, w: 300 },
+      { kind: 'wall',  x: 2160, w: 22, h: 58 },
+      { kind: 'wall',  x: 2440, w: 22, h: 58 },
+      { kind: 'wall',  x: 2720, w: 26, h: 86 },
+      { kind: 'bars',  x: 3160, bars: 6 },
+      { kind: 'wires', x: 3920, w: 40, h: 48 },
+      { kind: 'wires', x: 4175, w: 40, h: 48 },
+      { kind: 'wires', x: 4430, w: 40, h: 48 },
+      { kind: 'wall',  x: 4880, w: 30, h: 100 },
+      { kind: 'finish', x: 5240 },
+    ],
+  },
+  {
+    pal: 'night',
+    title: 'Stage 2 · Night',
+    sub: 'The sun is down. Keep moving.',
+    course: [
+      { kind: 'wall',  x: 700,  w: 22, h: 60 },
+      { kind: 'wall',  x: 980,  w: 22, h: 80 },
+      { kind: 'wall',  x: 1260, w: 22, h: 60 },
+      { kind: 'net',   x: 1700, w: 340 },
+      { kind: 'wires', x: 2440, w: 40, h: 48 },
+      { kind: 'wires', x: 2695, w: 40, h: 48 },
+      { kind: 'wires', x: 2950, w: 40, h: 48 },
+      { kind: 'bars',  x: 3340, bars: 7 },
+      { kind: 'wall',  x: 4260, w: 22, h: 64 },
+      { kind: 'wall',  x: 4540, w: 22, h: 64 },
+      { kind: 'wires', x: 4860, w: 40, h: 48 },
+      { kind: 'wires', x: 5115, w: 40, h: 48 },
+      { kind: 'wall',  x: 5460, w: 30, h: 105 },
+      { kind: 'finish', x: 5820 },
+    ],
+  },
+  {
+    pal: 'morning',
+    title: 'Stage 3 · Dawn',
+    sub: 'One stage left. Bring it home.',
+    course: [
+      { kind: 'wall',  x: 680,  w: 22, h: 62 },
+      { kind: 'wall',  x: 940,  w: 22, h: 80 },
+      { kind: 'wall',  x: 1200, w: 22, h: 62 },
+      { kind: 'wires', x: 1520, w: 40, h: 50 },
+      { kind: 'wires', x: 1775, w: 40, h: 50 },
+      { kind: 'wires', x: 2030, w: 40, h: 50 },
+      { kind: 'net',   x: 2400, w: 380 },
+      { kind: 'bars',  x: 3120, bars: 8 },
+      { kind: 'wall',  x: 4180, w: 22, h: 66 },
+      { kind: 'wall',  x: 4440, w: 22, h: 66 },
+      { kind: 'wall',  x: 4700, w: 26, h: 92 },
+      { kind: 'wires', x: 5040, w: 40, h: 50 },
+      { kind: 'wires', x: 5295, w: 40, h: 50 },
+      { kind: 'wires', x: 5550, w: 40, h: 50 },
+      { kind: 'wall',  x: 5920, w: 32, h: 110 },
+      { kind: 'finish', x: 6280 },
+    ],
+  },
 ];
-// derive bars width
-for (const o of COURSE) {
-  if (o.kind === 'bars') { o.w = o.bars * BAR_GAP + 30; }
+// derive bars-section width from bar count, across every stage
+for (const st of STAGES) {
+  for (const o of st.course) {
+    if (o.kind === 'bars') o.w = o.bars * BAR_GAP + 30;
+  }
 }
 
 // --- state ------------------------------------------------------------
@@ -204,24 +301,50 @@ const player = {
   netEnterX: 0,
 };
 const input = { held: false, pressed: false, prev: false };
-let phase = 'start';           // start | running | dead | won
+let phase = 'start';           // start | running | stage | dead | won
+let stageIdx = 0;              // 0 day, 1 night, 2 dawn
+let course = STAGES[0].course; // active stage's obstacle list
+let pal = PALETTES.day;        // active stage's palette
+let stars = [];                // precomputed night star field
 let attempts = 0;
 let elapsed = 0;
 let deadCause = '';
 let activeOverlay = 'start';
 
-// --- input ------------------------------------------------------------
-function setHeld(v) { input.held = !!v; }
-function onKeyDown(e) {
-  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    e.preventDefault();
-    setHeld(true);
+function initStars(n) {
+  stars = [];
+  for (let i = 0; i < n; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H * 0.55,
+      r: Math.random() * 1.4 + 0.3,
+      p: Math.random() * Math.PI * 2,
+    });
   }
 }
-function onKeyUp(e) {
-  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    setHeld(false);
+
+// --- input ------------------------------------------------------------
+const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
+function setHeld(v) { input.held = !!v; }
+// When an overlay is up, space/enter fires that overlay's primary action
+// instead of feeding the game.
+function overlayAction() {
+  if (activeOverlay === 'start' || activeOverlay === 'dead') beginRun();
+  else if (activeOverlay === 'stage') continueToNextStage();
+  else if (activeOverlay === 'won') beginRun(true);
+}
+function onKeyDown(e) {
+  if (!JUMP_KEYS.has(e.code) && e.code !== 'Enter') return;
+  e.preventDefault();
+  if (phase !== 'running') {
+    if (e.repeat) return;
+    overlayAction();
+    return;
   }
+  setHeld(true);
+}
+function onKeyUp(e) {
+  if (JUMP_KEYS.has(e.code)) setHeld(false);
 }
 window.addEventListener('keydown', onKeyDown);
 window.addEventListener('keyup', onKeyUp);
@@ -233,6 +356,7 @@ window.addEventListener('blur', () => setHeld(false));
 // --- overlays ---------------------------------------------------------
 const overlays = {
   start: document.getElementById('screen-start'),
+  stage: document.getElementById('screen-stage'),
   dead:  document.getElementById('screen-dead'),
   won:   document.getElementById('screen-won'),
 };
@@ -240,9 +364,16 @@ function showOverlay(name) {
   activeOverlay = name;
   for (const k in overlays) overlays[k].classList.toggle('hidden', k !== name);
 }
-document.getElementById('btn-start').addEventListener('click', () => beginRun());
-document.getElementById('btn-retry').addEventListener('click', () => beginRun());
-document.getElementById('btn-play-again').addEventListener('click', () => beginRun(true));
+// Tapping anywhere on the start/stage/dead cards fires their action (the
+// button is just the affordance). The won card only reacts to its button so
+// players can long-press the puzzle piece to save it.
+overlays.start.addEventListener('click', () => beginRun());
+overlays.dead.addEventListener('click', () => beginRun());
+overlays.stage.addEventListener('click', () => continueToNextStage());
+document.getElementById('btn-play-again').addEventListener('click', (e) => {
+  e.stopPropagation();
+  beginRun(true);
+});
 
 // --- win persistence --------------------------------------------------
 try { attempts = parseInt(localStorage.getItem(ATTEMPT_STORAGE_KEY) || '0', 10) || 0; } catch {}
@@ -270,10 +401,16 @@ function loadPuzzlePiece() {
 }
 
 // --- life cycle -------------------------------------------------------
-function beginRun(force) {
-  if (alreadyWon() && !force) { showWon(); return; }
-  attempts += 1;
-  recordAttempt();
+// Point the world at a stage's course + palette and reset the runner to the
+// start line. Used both to begin stage 1 and to advance between stages.
+function loadStage(i) {
+  stageIdx = i;
+  const st = STAGES[i];
+  course = st.course;
+  pal = PALETTES[st.pal];
+  initStars(pal.stars);
+  input.held = false;
+  input.prev = false;
   player.x = 0;
   player.y = FLOOR_Y - PLAYER_H;
   player.vy = 0;
@@ -282,17 +419,44 @@ function beginRun(force) {
   player.barIdx = 0;
   player.lastTap = 0;
   elapsed = 0;
+}
+
+function beginRun(force) {
+  if (alreadyWon() && !force) { showWon(); return; }
+  attempts += 1;
+  recordAttempt();
   deadCause = '';
+  loadStage(0);           // one life: every run starts at Stage 1, Day
   phase = 'running';
   showOverlay(null);
 }
+
+// Finished a stage's course. Advance to the next stage, or win after the last.
+function clearStage() {
+  if (stageIdx >= STAGES.length - 1) {
+    markWon();
+    showWon();
+    return;
+  }
+  phase = 'stage';
+  const next = STAGES[stageIdx + 1];
+  document.getElementById('stage-title').textContent = next.title;
+  document.getElementById('stage-sub').textContent = next.sub;
+  showOverlay('stage');
+}
+function continueToNextStage() {
+  loadStage(stageIdx + 1);
+  phase = 'running';
+  showOverlay(null);
+}
+
 function die(cause) {
   if (phase !== 'running') return;
   phase = 'dead';
   deadCause = cause;
   document.getElementById('dead-cause').textContent = cause;
   document.getElementById('dead-stat').textContent =
-    'Attempt ' + attempts + ' · ' + Math.floor(player.x) + ' m';
+    'Attempt ' + attempts + ' · reached ' + STAGES[stageIdx].title;
   showOverlay('dead');
 }
 function showWon() {
@@ -307,7 +471,7 @@ if (alreadyWon()) showWon();
 // --- update -----------------------------------------------------------
 function approachZone(kind, x) {
   // Return the first obstacle of kind whose zone the player is inside, else null.
-  for (const o of COURSE) {
+  for (const o of course) {
     if (o.kind !== kind) continue;
     if (x >= o.x && x < o.x + o.w) return o;
   }
@@ -416,7 +580,7 @@ function update(dt) {
 
   // collision with kill-on-contact obstacles (walls, wires)
   if (phase === 'running' && (player.mode === 'ground' || player.mode === 'air')) {
-    for (const o of COURSE) {
+    for (const o of course) {
       if (o.kind !== 'wall' && o.kind !== 'wires') continue;
       const ox = o.x, oy = FLOOR_Y - o.h, ow = o.w, oh = o.h;
       const px = player.x - PLAYER_W / 2, py = player.y, pw = PLAYER_W, ph = PLAYER_H;
@@ -427,11 +591,10 @@ function update(dt) {
     }
   }
 
-  // finish line
-  for (const o of COURSE) {
+  // finish line — clears the stage (advances, or wins after the last)
+  for (const o of course) {
     if (o.kind === 'finish' && player.x >= o.x) {
-      markWon();
-      showWon();
+      clearStage();
       return;
     }
   }
@@ -454,19 +617,35 @@ function render() {
 
 function drawSky() {
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#1a2330');
-  g.addColorStop(0.7, '#2e3d4f');
-  g.addColorStop(1, '#3b4a5d');
+  g.addColorStop(0, pal.sky[0]);
+  g.addColorStop(0.62, pal.sky[1]);
+  g.addColorStop(1, pal.sky[2]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
-  // distant sun glow behind castle
-  const cx = W * 0.62, cy = H * 0.42;
-  const sun = ctx.createRadialGradient(cx, cy, 10, cx, cy, 220);
-  sun.addColorStop(0, 'rgba(240, 180, 0, 0.35)');
-  sun.addColorStop(1, 'rgba(240, 180, 0, 0)');
-  ctx.fillStyle = sun;
+  // stars first (night), so the moon glow sits over them
+  if (pal.stars) drawStars();
+
+  // sun / moon: soft radial glow + a solid core disc
+  const L = pal.light;
+  const cx = W * L.x, cy = H * L.y;
+  const glow = ctx.createRadialGradient(cx, cy, 8, cx, cy, L.r);
+  glow.addColorStop(0, L.glow);
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = L.core;
+  ctx.beginPath();
+  ctx.arc(cx, cy, L.coreR, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawStars() {
+  for (const s of stars) {
+    const a = 0.35 + 0.65 * Math.abs(Math.sin(elapsed * 1.5 + s.p));
+    ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')';
+    ctx.fillRect(s.x, s.y, s.r, s.r);
+  }
 }
 
 // Belvoir-flavored castle silhouette: hilltop with central keep, flanking
@@ -474,7 +653,7 @@ function drawSky() {
 function drawCastle(ox) {
   ctx.save();
   ctx.translate(ox, 0);
-  ctx.fillStyle = '#0e1620';
+  ctx.fillStyle = pal.castle;
   // hill
   ctx.beginPath();
   const hillY = H * 0.66;
@@ -525,7 +704,7 @@ function drawCastle(ox) {
 function drawHills(ox) {
   ctx.save();
   ctx.translate(ox, 0);
-  ctx.fillStyle = '#162130';
+  ctx.fillStyle = pal.hill;
   // a couple of mid-distance hills tiled across a wider span
   const span = W * 2;
   for (let i = -1; i < 3; i++) {
@@ -539,7 +718,7 @@ function drawHills(ox) {
     ctx.fill();
   }
   // foreground trees as silhouettes
-  ctx.fillStyle = '#0c1219';
+  ctx.fillStyle = pal.fg;
   for (let i = -1; i < 6; i++) {
     const tx = (i * 280 + (ox % 280)) % (W + 600) - 100;
     drawTree(tx + 40, FLOOR_Y);
@@ -557,26 +736,26 @@ function drawTree(x, baseY) {
 
 function drawGround(ox) {
   // ground band
-  ctx.fillStyle = '#070b10';
+  ctx.fillStyle = pal.ground;
   ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
   // a brighter top edge line
-  ctx.fillStyle = '#1d2832';
+  ctx.fillStyle = pal.edge;
   ctx.fillRect(0, FLOOR_Y, W, 2);
 
   // pits beneath any bars section
-  for (const o of COURSE) {
+  for (const o of course) {
     if (o.kind !== 'bars') continue;
     const sx = o.x + ox;
     if (sx + o.w < 0 || sx > W) continue;
     ctx.fillStyle = '#000';
     ctx.fillRect(sx, FLOOR_Y, o.w, H - FLOOR_Y);
-    ctx.fillStyle = '#1d2832';
+    ctx.fillStyle = pal.edge;
     ctx.fillRect(sx, FLOOR_Y, o.w, 2);
   }
 }
 
 function drawCourse(ox) {
-  for (const o of COURSE) {
+  for (const o of course) {
     const sx = o.x + ox;
     if (sx + (o.w || 30) < -100 || sx > W + 100) continue;
     if (o.kind === 'wall') drawWall(sx, o.w, o.h);
@@ -587,15 +766,15 @@ function drawCourse(ox) {
   }
 }
 function drawWall(x, w, h) {
-  ctx.fillStyle = '#0a0f15';
+  ctx.fillStyle = pal.fg;
   ctx.fillRect(x, FLOOR_Y - h, w, h);
   // top accent
-  ctx.fillStyle = '#1d2832';
+  ctx.fillStyle = pal.edge;
   ctx.fillRect(x, FLOOR_Y - h, w, 2);
 }
 function drawNet(x, w) {
   ctx.save();
-  ctx.fillStyle = '#0a0f15';
+  ctx.fillStyle = pal.fg;
   // posts
   ctx.fillRect(x - 4, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
   ctx.fillRect(x + w - 2, NET_TOP_Y, 6, FLOOR_Y - NET_TOP_Y);
@@ -609,7 +788,7 @@ function drawNet(x, w) {
   ctx.beginPath();
   ctx.rect(x, gridY0, w, span);
   ctx.clip();
-  ctx.strokeStyle = '#0a0f15';
+  ctx.strokeStyle = pal.fg;
   ctx.lineWidth = 2;
   ctx.beginPath();
   for (let i = -span; i <= w + span; i += step) {
@@ -624,7 +803,7 @@ function drawNet(x, w) {
 function drawBars(x, o) {
   // overhead rail with hanging bars
   const railY = HANG_Y - 14;
-  ctx.fillStyle = '#0a0f15';
+  ctx.fillStyle = pal.fg;
   ctx.fillRect(x, railY, o.w, 6);
   // posts
   ctx.fillRect(x - 4, railY - 30, 6, 30);
@@ -639,15 +818,15 @@ function drawBars(x, o) {
 function drawWires(x, w, h) {
   // low electrified coil you hop. Short posts, crossbar, arcing top wire.
   const topY = FLOOR_Y - h;
-  ctx.fillStyle = '#0a0f15';
+  ctx.fillStyle = pal.fg;
   ctx.fillRect(x, topY, 4, h);
   ctx.fillRect(x + w - 4, topY, 4, h);
   ctx.fillRect(x, topY, w, 4);
   // soft glow band over the bar
-  ctx.fillStyle = 'rgba(240, 180, 0, 0.12)';
+  ctx.fillStyle = pal.arc.replace(/[\d.]+\)$/, '0.14)');
   ctx.fillRect(x - 4, topY - 6, w + 8, 12);
   // animated electric arc along the top
-  ctx.strokeStyle = 'rgba(240, 180, 0, 0.9)';
+  ctx.strokeStyle = pal.arc;
   ctx.lineWidth = 1.8;
   ctx.beginPath();
   const t = elapsed * 16;
@@ -663,7 +842,7 @@ function drawWires(x, w, h) {
 function drawFinish(x) {
   // checkered post
   const poleW = 6, poleH = 130;
-  ctx.fillStyle = '#0a0f15';
+  ctx.fillStyle = pal.fg;
   ctx.fillRect(x, FLOOR_Y - poleH, poleW, poleH);
   // banner
   const bw = 80, bh = 36;
@@ -678,8 +857,8 @@ function drawFinish(x) {
 
 function drawPlayer() {
   const px = PLAYER_SX, py = player.y;
-  ctx.fillStyle = '#0a0f15';
-  ctx.strokeStyle = '#0a0f15';
+  ctx.fillStyle = pal.fg;
+  ctx.strokeStyle = pal.fg;
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
 
