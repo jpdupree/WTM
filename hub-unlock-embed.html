@@ -146,9 +146,7 @@
   var GO_LIVE = '2026-06-16T22:00:00-05:00';   // 10:00 PM Central (CDT)
   var GO_LIVE_LABEL = '10:00 PM CT tonight';
   /* ================================================================== */
-  // Secret preview bypass: ...?preview=timtendo plays the whole thing live now.
-  var PREVIEW = /[?&]preview=timtendo(\b|$)/.test(location.search);
-  function isLive() { return PREVIEW || Date.now() >= Date.parse(GO_LIVE); }
+  function isLive() { return Date.now() >= Date.parse(GO_LIVE); }
 
   var root = document.getElementById('wtm-hunt');
   var trigger = document.getElementById('wtm-trigger');
@@ -205,8 +203,7 @@
     }
     unlocked = true;
     msg.textContent = 'unlocked!'; msg.className = 'wtm-msg good';
-    // in preview, carry the flag into the game so the piece previews too
-    frame.src = GAME_URL + (PREVIEW ? (GAME_URL.indexOf('?') >= 0 ? '&' : '?') + 'preview=timtendo' : '');
+    frame.src = GAME_URL;                       // load the game only now
     gameBox.classList.remove('wtm-hidden');
     setTimeout(function () {
       pad.classList.add('wtm-hidden');
