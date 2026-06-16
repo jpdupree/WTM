@@ -210,6 +210,20 @@ const BAR_GAP = 78;               // px between bars
 const HANG_Y = FLOOR_Y - 170;     // y of feet while hanging (top of player)
 const NET_TOP_Y = FLOOR_Y - 140;  // top of cargo net
 
+// Firefly: ramp up to a platform, time a leap off the end over the fire,
+// ring the bell, splash into the pool, wade out. Geometry derives from o.x.
+const WALK_SPEED = 150;           // wading speed out of the pool
+const FF = { rampLen: 140, platLen: 70, platH: 70, fireW: 124, waterW: 120, exitPad: 16, leapVy: -640, flameH: 55 };
+FF.width = FF.rampLen + FF.platLen + FF.fireW + FF.waterW + FF.exitPad; // 470
+function ffPlatTopY() { return FLOOR_Y - FF.platH - PLAYER_H; }
+function ffEdge(o) { return o.x + FF.rampLen + FF.platLen; }
+function rampProfileY(o, x) {
+  const groundTop = FLOOR_Y - PLAYER_H, platTop = ffPlatTopY(), platStart = o.x + FF.rampLen;
+  if (x <= o.x) return groundTop;
+  if (x >= platStart) return platTop;
+  return groundTop + (platTop - groundTop) * ((x - o.x) / FF.rampLen);
+}
+
 // --- palettes (one per time-of-day stage) ----------------------------
 // The runner stays a black silhouette (PLAYER_COLOR); the world gets colour
 // so the foreground reads clearly. Background (castle/hill) is hazier/darker
@@ -269,17 +283,21 @@ function buildCourse(pattern, finishPad) {
     else if (e.kind === 'wires') { o.w = 40; o.h = e.h || 50; }
     else if (e.kind === 'net') { o.w = e.w || 320; }
     else if (e.kind === 'bars') { o.bars = e.bars; o.w = e.bars * BAR_GAP + 30; }
+    else if (e.kind === 'firefly') { o.w = FF.width; }
     out.push(o);
   }
   out.push({ kind: 'finish', x: x + finishPad });
   return out;
 }
 
-// Play a pattern twice (double-length stage). The second pass begins after
-// `seam` px of runway rather than the original lead-in.
+// Play a pattern twice (double-length stage), then add a single Firefly as the
+// climactic obstacle before the finish — exactly one per stage.
 function doubled(pattern, seam) {
   const tail = pattern.map((e, i) => (i === 0 ? Object.assign({}, e, { gap: seam }) : e));
   return pattern.concat(tail);
+}
+function withFirefly(pattern, seam, ffGap) {
+  return doubled(pattern, seam).concat([{ kind: 'firefly', gap: ffGap }]);
 }
 
 const PAT_DAY = [
@@ -329,20 +347,23 @@ const PAT_DAWN = [
 ];
 
 const STAGES = [
-  { pal: 'day',     title: 'Stage 1 · Day',   sub: 'High sun. Learn the course.',   course: buildCourse(doubled(PAT_DAY, 470), 360) },
-  { pal: 'night',   title: 'Stage 2 · Night', sub: 'The sun is down. Keep moving.', course: buildCourse(doubled(PAT_NIGHT, 470), 360) },
-  { pal: 'morning', title: 'Stage 3 · Dawn',  sub: 'One stage left. Bring it home.', course: buildCourse(doubled(PAT_DAWN, 470), 360) },
+  { pal: 'day',     title: 'Stage 1 · Day',   sub: 'High sun. Learn the course.',   course: buildCourse(withFirefly(PAT_DAY, 470, 520), 580) },
+  { pal: 'night',   title: 'Stage 2 · Night', sub: 'The sun is down. Keep moving.', course: buildCourse(withFirefly(PAT_NIGHT, 470, 520), 580) },
+  { pal: 'morning', title: 'Stage 3 · Dawn',  sub: 'One stage left. Bring it home.', course: buildCourse(withFirefly(PAT_DAWN, 470, 520), 580) },
 ];
 
 // --- state ------------------------------------------------------------
 const player = {
   x: 0, y: FLOOR_Y - PLAYER_H, vy: 0,
-  mode: 'ground',    // ground | air | climb | hang | falling
+  mode: 'ground',    // ground | air | climb | hang | ramp | ffair | splash
   runFrame: 0,
   barIdx: 0,
   lastTap: 0,
   netEnterX: 0,
+  ff: null,          // active firefly obstacle
+  ffBell: false,     // rang the bell this leap?
 };
+let splashes = [];   // water droplets from the firefly pool
 const input = { held: false, pressed: false, prev: false };
 let phase = 'start';           // start | running | stage | dead | won
 let stageIdx = 0;              // 0 day, 1 night, 2 dawn
@@ -612,6 +633,16 @@ function sfxGrab() {        // monkey-bar / pipe clack
 function sfxClimbTick() {    // cargo-net scrape
   if (actx) noiseBurst(actx.currentTime, 0.05, 600, 0.16);
 }
+function sfxBell() {        // ring the firefly bell
+  if (!actx) return;
+  const t = actx.currentTime;
+  blip(1318.5, t, 0.6, 'sine', sfxGain, 0.45);
+  blip(1975.5, t, 0.5, 'sine', sfxGain, 0.22);
+}
+function sfxSplash() {
+  if (!actx) return;
+  noiseBurst(actx.currentTime, 0.28, 480, 0.42);
+}
 function sfxDie() {
   if (!actx) return;
   const t = actx.currentTime;
@@ -664,6 +695,9 @@ function loadStage(i) {
   player.runFrame = 0;
   player.barIdx = 0;
   player.lastTap = 0;
+  player.ff = null;
+  player.ffBell = false;
+  splashes = [];
   elapsed = 0;
   climbAcc = 0;
   if (actx) { setElectricity(false); startMusic(i); }
@@ -809,6 +843,81 @@ function update(dt) {
         }
       }
       // monkey bars are resolved by the leading-edge crossing check below.
+      // step onto the Firefly ramp when reaching it
+      const ff = approachZone('firefly', player.x);
+      if (ff && player.mode === 'ground') {
+        player.mode = 'ramp';
+        player.ff = ff;
+        player.ffBell = false;
+      }
+      break;
+    }
+
+    case 'ramp': {
+      // walk up the ramp / along the platform; y follows the profile
+      const o = player.ff;
+      player.x += RUN_SPEED * dt;
+      player.y = rampProfileY(o, player.x);
+      // tap to leap off (from wherever you are — timing decides the outcome)
+      if (input.pressed) {
+        player.vy = FF.leapVy;
+        player.mode = 'ffair';
+        sfxJump();
+      } else if (player.x >= ffEdge(o)) {
+        // ran off the end without leaping → drop straight into the fire
+        player.vy = 0;
+        player.mode = 'ffair';
+      }
+      break;
+    }
+
+    case 'ffair': {
+      const o = player.ff;
+      player.x += RUN_SPEED * dt;
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+      const feet = player.y + PLAYER_H;
+      const fireX0 = ffEdge(o), fireX1 = fireX0 + FF.fireW;
+      const waterX0 = fireX1, waterX1 = waterX0 + FF.waterW;
+      const flameTop = FLOOR_Y - FF.flameH;
+      const bellX = fireX0 + 80, bellHitY = ffPlatTopY() - 70; // matches leap apex
+      if (!player.ffBell && Math.abs(player.x - bellX) < 24 &&
+          Math.abs(player.y - bellHitY) < 36) {
+        player.ffBell = true;
+        sfxBell();
+      }
+      if (player.x >= fireX0 && player.x <= fireX1 && feet >= flameTop) {
+        die('firefly · into the fire');
+        break;
+      }
+      if (player.x >= waterX0 && player.x <= waterX1 && feet >= FLOOR_Y) {
+        player.mode = 'splash';
+        player.y = FLOOR_Y - 16;
+        player.vy = 0;
+        spawnSplash(player.x);
+        sfxSplash();
+      }
+      break;
+    }
+
+    case 'splash': {
+      // bob in the pool with your head out, then wade up and out the far side
+      const o = player.ff;
+      const waterX1 = ffEdge(o) + FF.fireW + FF.waterW;
+      const exitX = o.x + FF.width;
+      const climbStart = waterX1 - 36;
+      player.x += WALK_SPEED * dt;
+      if (player.x < climbStart) {
+        player.y = FLOOR_Y - 16;
+      } else {
+        const f = Math.min(1, (player.x - climbStart) / (exitX - climbStart));
+        player.y = (FLOOR_Y - 16) + ((FLOOR_Y - PLAYER_H) - (FLOOR_Y - 16)) * f;
+      }
+      if (player.x >= exitX) {
+        player.mode = 'ground';
+        player.y = FLOOR_Y - PLAYER_H;
+        player.ff = null;
+      }
       break;
     }
 
@@ -919,12 +1028,35 @@ function update(dt) {
     }
   }
 
+  // splash droplets
+  if (splashes.length) {
+    for (const p of splashes) {
+      p.life -= dt;
+      p.x += p.vx * dt;
+      p.vy += GRAVITY * dt;
+      p.y += p.vy * dt;
+    }
+    splashes = splashes.filter((p) => p.life > 0 && p.y < FLOOR_Y + 30);
+  }
+
   // finish line — clears the stage (advances, or wins after the last)
   for (const o of course) {
     if (o.kind === 'finish' && player.x >= o.x) {
       clearStage();
       return;
     }
+  }
+}
+
+function spawnSplash(x) {
+  for (let i = 0; i < 16; i++) {
+    splashes.push({
+      x: x + (Math.random() * 30 - 15),
+      y: FLOOR_Y,
+      vx: (Math.random() * 2 - 1) * 130,
+      vy: -(130 + Math.random() * 200),
+      life: 0.5 + Math.random() * 0.35,
+    });
   }
 }
 
@@ -941,6 +1073,17 @@ function render() {
   drawGround(-scroll);
   drawCourse(-scroll);
   drawPlayer();
+  drawSplashes(-scroll);
+}
+
+function drawSplashes(ox) {
+  if (!splashes.length) return;
+  ctx.fillStyle = pal.waterEdge;
+  for (const p of splashes) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 2));
+    ctx.fillRect(p.x + ox - 1.5, p.y - 1.5, 3, 3);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawSky() {
@@ -1100,7 +1243,87 @@ function drawCourse(ox) {
     else if (o.kind === 'net') drawNet(sx, o.w);
     else if (o.kind === 'bars') drawBars(sx, o);
     else if (o.kind === 'wires') drawWires(sx, o.w, o.h);
+    else if (o.kind === 'firefly') drawFirefly(sx, o);
     else if (o.kind === 'finish') drawFinish(sx);
+  }
+}
+
+function drawFirefly(sx, o) {
+  const platTop = FLOOR_Y - FF.platH;
+  const rampEndX = sx + FF.rampLen;
+  const edgeX = rampEndX + FF.platLen;
+  const fireX0 = edgeX, fireX1 = edgeX + FF.fireW;
+  const waterX0 = fireX1, waterX1 = waterX0 + FF.waterW;
+
+  // ramp wedge + raised platform deck on legs (scaffold silhouette)
+  ctx.fillStyle = pal.obj;
+  ctx.beginPath();
+  ctx.moveTo(sx, FLOOR_Y);
+  ctx.lineTo(rampEndX, platTop);
+  ctx.lineTo(rampEndX, FLOOR_Y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(rampEndX, platTop, FF.platLen, 8);          // deck
+  ctx.fillRect(rampEndX + 4, platTop + 8, 6, FF.platH - 8); // legs
+  ctx.fillRect(edgeX - 12, platTop + 8, 6, FF.platH - 8);
+
+  // overhead beam + hanging target bag across the gap, aligned to the leap apex
+  const bellHitY = ffPlatTopY() - 70;       // strike height (≈ apex)
+  const beamY = ffPlatTopY() - 116;         // beam above the apex
+  const bellX = fireX0 + 80;
+  ctx.fillStyle = pal.obj;
+  ctx.fillRect(rampEndX, beamY, waterX1 - rampEndX, 6);
+  ctx.fillRect(rampEndX, beamY, 6, 18);
+  ctx.fillRect(waterX1 - 6, beamY, 6, 18);
+  // hanging bag (the firefly target), swings briefly after a ring
+  const swing = player.ffBell ? Math.sin(elapsed * 16) * 0.22 : 0;
+  ctx.save();
+  ctx.translate(bellX, beamY + 6);
+  ctx.rotate(swing);
+  const ropeLen = bellHitY - (beamY + 6);
+  ctx.strokeStyle = pal.obj; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, ropeLen); ctx.stroke();
+  ctx.fillStyle = '#d23b2e';
+  ctx.beginPath();
+  ctx.moveTo(-10, ropeLen); ctx.lineTo(10, ropeLen);
+  ctx.lineTo(7, ropeLen + 26); ctx.lineTo(-7, ropeLen + 26);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f0b400';
+  ctx.fillRect(-9, ropeLen + 10, 18, 5);
+  ctx.restore();
+
+  // water pool
+  ctx.fillStyle = pal.water;
+  ctx.fillRect(waterX0, FLOOR_Y, FF.waterW, H - FLOOR_Y);
+  ctx.strokeStyle = pal.waterEdge; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let wx = 0; wx <= FF.waterW; wx += 6) {
+    const yy = FLOOR_Y + 3 + Math.sin((wx + elapsed * 90) / 16) * 2;
+    if (wx === 0) ctx.moveTo(waterX0 + wx, yy); else ctx.lineTo(waterX0 + wx, yy);
+  }
+  ctx.stroke();
+
+  // fire (always warm/orange regardless of stage), flickering tongues
+  const flameTop = FLOOR_Y - FF.flameH;
+  const glow = ctx.createRadialGradient((fireX0 + fireX1) / 2, FLOOR_Y, 8, (fireX0 + fireX1) / 2, FLOOR_Y, FF.fireW);
+  glow.addColorStop(0, 'rgba(255,150,40,0.35)');
+  glow.addColorStop(1, 'rgba(255,90,20,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(fireX0 - 30, flameTop - 30, FF.fireW + 60, FF.flameH + 40);
+  for (let fx = fireX0 + 6; fx < fireX1; fx += 14) {
+    const h = FF.flameH * (0.6 + 0.4 * Math.abs(Math.sin(elapsed * 9 + fx)));
+    const sway = Math.sin(elapsed * 11 + fx) * 4;
+    const grad = ctx.createLinearGradient(0, FLOOR_Y, 0, FLOOR_Y - h);
+    grad.addColorStop(0, '#ffd23f');
+    grad.addColorStop(0.6, '#ff7a18');
+    grad.addColorStop(1, 'rgba(214,40,20,0.2)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(fx - 6, FLOOR_Y);
+    ctx.quadraticCurveTo(fx - 2 + sway, FLOOR_Y - h * 0.6, fx + sway, FLOOR_Y - h);
+    ctx.quadraticCurveTo(fx + 2 + sway, FLOOR_Y - h * 0.6, fx + 6, FLOOR_Y);
+    ctx.closePath();
+    ctx.fill();
   }
 }
 function drawWall(x, w, h) {
@@ -1195,6 +1418,7 @@ function drawFinish(x) {
 
 function drawPlayer() {
   const px = PLAYER_SX, py = player.y;
+  if (player.mode === 'splash') { drawSwimmer(px); return; }
   // On dark stages, paint a brighter rim under the silhouette so the runner
   // reads against the sky even mid-jump. Done by drawing the limbs twice —
   // first as a fatter stroke in pal.playerRim, then the normal black on top.
@@ -1202,6 +1426,29 @@ function drawPlayer() {
     drawPlayerLimbs(px, py, pal.playerRim, 7, true);
   }
   drawPlayerLimbs(px, py, PLAYER_COLOR, 3, false);
+}
+
+// Head + shoulders poking out of the pool while wading out of the firefly.
+function drawSwimmer(px) {
+  if (pal.playerRim) { paintSwimmer(px, pal.playerRim, 7); }
+  paintSwimmer(px, PLAYER_COLOR, 3);
+}
+function paintSwimmer(px, color, lineW) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineW;
+  ctx.lineCap = 'round';
+  const headY = FLOOR_Y - 8;
+  ctx.beginPath();
+  ctx.arc(px, headY, 8, 0, Math.PI * 2);
+  ctx.fill();
+  // arms breaking the surface
+  ctx.beginPath();
+  ctx.moveTo(px, headY + 6);
+  ctx.lineTo(px - 12, FLOOR_Y - 2);
+  ctx.moveTo(px, headY + 6);
+  ctx.lineTo(px + 12, FLOOR_Y - 4);
+  ctx.stroke();
 }
 
 function drawPlayerLimbs(px, py, color, lineW, isRim) {
@@ -1222,7 +1469,7 @@ function drawPlayerLimbs(px, py, color, lineW, isRim) {
   ctx.fill();
 
   // limbs depend on mode
-  if (player.mode === 'ground') {
+  if (player.mode === 'ground' || player.mode === 'ramp') {
     const f = Math.floor(player.runFrame);
     const legSwing = [10, 4, -10, 4][f];
     // legs
@@ -1238,6 +1485,18 @@ function drawPlayerLimbs(px, py, color, lineW, isRim) {
     ctx.lineTo(bodyX - legSwing * 0.8, bodyTop + 18);
     ctx.moveTo(bodyX, bodyTop + 4);
     ctx.lineTo(bodyX + legSwing * 0.8, bodyTop + 18);
+    ctx.stroke();
+  } else if (player.mode === 'ffair') {
+    // firefly leap: one arm punched up toward the bell, legs trailing
+    ctx.beginPath();
+    ctx.moveTo(bodyX, bodyTop + 3);
+    ctx.lineTo(bodyX + 13, bodyTop - 16);  // reaching arm
+    ctx.moveTo(bodyX, bodyTop + 5);
+    ctx.lineTo(bodyX - 11, bodyTop + 14);  // trailing arm
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX + 12, py + PLAYER_H - 2);
+    ctx.moveTo(bodyX, bodyBot);
+    ctx.lineTo(bodyX - 8, py + PLAYER_H);
     ctx.stroke();
   } else if (player.mode === 'air') {
     // tucked
