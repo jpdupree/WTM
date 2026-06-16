@@ -1,0 +1,215 @@
+<!--
+  WTM Puzzle Hunter — hub unlock + embed block.
+
+  Paste EVERYTHING below (the <div>, <style>, and <script>) into a single
+  WordPress "Custom HTML" block on theocrreport.com/wtm.
+
+  How it works:
+    1. A subtle hidden button sits on the page (the small dim controller dot).
+       Finding it is step one of the hunt.
+    2. Tapping it pops up a Nintendo-style controller.
+    3. The player taps the Konami code on the controller — Up Up Down Down
+       Left Right Left Right B A — to unlock the game.
+    4. The game (wtm-runner.html on GitHub Pages) is loaded into an iframe
+       right here on the page; the visitor never leaves /wtm.
+
+  TWO THINGS TO EDIT (marked CONFIG below):
+    • GAME_URL  — your GitHub Pages URL for wtm-runner.html
+    • UNLOCK_CODE — leave as the Konami code, or change it.
+
+  Optional: to use one of your OWN page elements (e.g. your logo) as the
+  hidden trigger instead of the dot, give that element id="wtm-trigger"
+  and delete the <button id="wtm-trigger"> line below.
+-->
+<div id="wtm-hunt">
+  <button id="wtm-trigger" type="button" aria-label="?">●</button>
+
+  <div id="wtm-pad" class="wtm-hidden" role="dialog" aria-label="Enter the code">
+    <div class="wtm-pad-shell">
+      <div class="wtm-brand">Nintendo</div>
+      <div class="wtm-row">
+        <div class="wtm-dpad">
+          <button class="wtm-d up"    data-k="U" aria-label="Up">▲</button>
+          <button class="wtm-d left"  data-k="L" aria-label="Left">◀</button>
+          <span    class="wtm-d hub"></span>
+          <button class="wtm-d right" data-k="R" aria-label="Right">▶</button>
+          <button class="wtm-d down"  data-k="D" aria-label="Down">▼</button>
+        </div>
+        <div class="wtm-mid">
+          <button class="wtm-pill" data-k="SEL">SELECT</button>
+          <button class="wtm-pill" data-k="STA">START</button>
+        </div>
+        <div class="wtm-ab">
+          <button class="wtm-round" data-k="B">B</button>
+          <button class="wtm-round" data-k="A">A</button>
+        </div>
+      </div>
+      <div class="wtm-msg" id="wtm-msg">enter the code</div>
+      <div class="wtm-dots" id="wtm-dots"></div>
+    </div>
+  </div>
+
+  <div id="wtm-game" class="wtm-hidden">
+    <iframe id="wtm-frame" title="WTM Puzzle Hunter" loading="lazy"
+            allow="autoplay" referrerpolicy="no-referrer-when-downgrade"></iframe>
+  </div>
+</div>
+
+<style>
+  #wtm-hunt { position: relative; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wtm-hidden { display: none !important; }
+
+  /* the hidden trigger — a dim little dot; make it as findable as you like */
+  #wtm-trigger {
+    width: 16px; height: 16px; padding: 0; line-height: 1;
+    border-radius: 50%; border: 0; cursor: pointer;
+    background: transparent; color: rgba(140,140,140,0.30);
+    font-size: 14px;
+  }
+  #wtm-trigger:hover { color: rgba(240,180,0,0.85); }
+
+  /* controller */
+  #wtm-pad { margin: 18px auto; max-width: 360px; }
+  .wtm-pad-shell {
+    background: #c9c9c9; border: 3px solid #6f6f6f; border-radius: 14px;
+    padding: 16px 16px 14px; box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+    position: relative;
+  }
+  .wtm-pad-shell::before {
+    content: ""; position: absolute; left: 12px; right: 12px; top: 8px; height: 10px;
+    background: repeating-linear-gradient(90deg,#7a1f1f 0 14px,#a33 14px 28px);
+    border-radius: 3px; opacity: 0.85;
+  }
+  .wtm-brand {
+    text-align: right; font-style: italic; font-weight: 800; color: #8a1f1f;
+    letter-spacing: 0.04em; margin: 14px 0 12px; font-size: 15px;
+  }
+  .wtm-row { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 10px; }
+
+  .wtm-dpad { position: relative; width: 96px; height: 96px; margin: 0 auto; }
+  .wtm-dpad .wtm-d {
+    position: absolute; width: 32px; height: 32px; background: #2b2b2b; color: #cfcfcf;
+    border: 0; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
+  }
+  .wtm-dpad .up    { top: 0; left: 32px; border-radius: 5px 5px 0 0; }
+  .wtm-dpad .down  { bottom: 0; left: 32px; border-radius: 0 0 5px 5px; }
+  .wtm-dpad .left  { left: 0; top: 32px; border-radius: 5px 0 0 5px; }
+  .wtm-dpad .right { right: 0; top: 32px; border-radius: 0 5px 5px 0; }
+  .wtm-dpad .hub   { position: absolute; left: 32px; top: 32px; width: 32px; height: 32px; background: #2b2b2b; }
+  .wtm-d:active { background: #f0b400; color: #1a1207; }
+
+  .wtm-mid { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .wtm-pill {
+    width: 58px; height: 16px; border-radius: 9px; border: 2px solid #555; background: #6f6f6f;
+    color: #ddd; font-size: 8px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer;
+  }
+  .wtm-pill:active { background: #f0b400; color: #1a1207; }
+
+  .wtm-ab { display: flex; gap: 12px; justify-content: center; align-items: center; }
+  .wtm-round {
+    width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+    background: #8a1f1f; color: #ffd; font-weight: 800; font-size: 16px;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.3);
+  }
+  .wtm-round:active { background: #f0b400; color: #1a1207; }
+
+  .wtm-msg { text-align: center; margin-top: 14px; font-size: 12px; letter-spacing: 0.12em;
+             text-transform: uppercase; color: #444; }
+  .wtm-msg.bad { color: #b3261e; }
+  .wtm-msg.good { color: #1f7a33; }
+  .wtm-dots { display: flex; gap: 6px; justify-content: center; margin-top: 8px; height: 8px; }
+  .wtm-dots span { width: 8px; height: 8px; border-radius: 50%; background: #999; }
+  .wtm-dots span.on { background: #f0b400; }
+  @keyframes wtm-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  .wtm-shake { animation: wtm-shake 0.3s; }
+
+  /* game */
+  #wtm-game { margin: 18px auto 0; max-width: 960px; }
+  #wtm-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; display: block; border-radius: 8px; }
+</style>
+
+<script>
+(function () {
+  /* ===== CONFIG ===================================================== */
+  var GAME_URL = 'https://YOURNAME.github.io/WTM/wtm-runner.html'; // <-- EDIT
+  var UNLOCK_CODE = ['U','U','D','D','L','R','L','R','B','A'];     // Konami
+  /* ================================================================== */
+
+  var root = document.getElementById('wtm-hunt');
+  var trigger = document.getElementById('wtm-trigger');
+  var pad = document.getElementById('wtm-pad');
+  var gameBox = document.getElementById('wtm-game');
+  var frame = document.getElementById('wtm-frame');
+  var msg = document.getElementById('wtm-msg');
+  var dots = document.getElementById('wtm-dots');
+  var buf = [];
+  var unlocked = false;
+
+  // progress dots
+  for (var i = 0; i < UNLOCK_CODE.length; i++) {
+    dots.appendChild(document.createElement('span'));
+  }
+  function paintDots(n) {
+    var els = dots.children;
+    for (var i = 0; i < els.length; i++) els[i].className = i < n ? 'on' : '';
+  }
+
+  function openPad() {
+    pad.classList.remove('wtm-hidden');
+    buf = []; paintDots(0);
+    msg.textContent = 'enter the code'; msg.className = 'wtm-msg';
+    pad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    msg.textContent = 'unlocked!'; msg.className = 'wtm-msg good';
+    frame.src = GAME_URL;                       // load the game only now
+    gameBox.classList.remove('wtm-hidden');
+    setTimeout(function () {
+      pad.classList.add('wtm-hidden');
+      gameBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 700);
+  }
+
+  function press(k) {
+    if (unlocked) return;
+    buf.push(k);
+    if (buf.length > UNLOCK_CODE.length) buf.shift();
+    // how many leading entries currently match
+    var match = 0;
+    for (var i = 0; i < buf.length; i++) {
+      if (buf[i] === UNLOCK_CODE[i]) match++; else { match = -1; break; }
+    }
+    if (match === -1) {
+      // wrong turn — reset
+      buf = []; paintDots(0);
+      msg.textContent = 'nope — try again'; msg.className = 'wtm-msg bad';
+      pad.querySelector('.wtm-pad-shell').classList.remove('wtm-shake');
+      void pad.offsetWidth;
+      pad.querySelector('.wtm-pad-shell').classList.add('wtm-shake');
+      return;
+    }
+    paintDots(buf.length);
+    msg.textContent = 'enter the code'; msg.className = 'wtm-msg';
+    if (buf.length === UNLOCK_CODE.length) unlock();
+  }
+
+  if (trigger) trigger.addEventListener('click', openPad);
+
+  pad.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-k]');
+    if (b) press(b.dataset.k);
+  });
+
+  // desktop convenience: physical keys also drive the code
+  var KEYMAP = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R',
+                 KeyB: 'B', KeyA: 'A', Enter: 'STA', ShiftRight: 'SEL' };
+  document.addEventListener('keydown', function (e) {
+    if (pad.classList.contains('wtm-hidden')) return;
+    var k = KEYMAP[e.code];
+    if (k) { e.preventDefault(); press(k); }
+  });
+})();
+</script>
