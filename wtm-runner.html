@@ -40,21 +40,23 @@
       display: flex; align-items: center; justify-content: center;
       flex-direction: column;
       text-align: center;
-      padding: 6%;
+      padding: 4% 6%;
+      overflow-y: auto;            /* never clip on short (portrait) iframes */
       background: rgba(0, 0, 0, 0.55);
       backdrop-filter: blur(2px);
       transition: opacity .25s ease;
     }
     .overlay.hidden { opacity: 0; pointer-events: none; }
     h1, h2 {
-      margin: 0 0 12px;
-      letter-spacing: 0.18em;
+      margin: 0 0 10px;
       text-transform: uppercase;
       font-weight: 700;
     }
-    h1 { font-size: clamp(28px, 4vw, 52px); }
-    h2 { font-size: clamp(22px, 3vw, 40px); }
-    p { margin: 6px 0; font-size: clamp(13px, 1.4vw, 17px); color: #cbd5e0; line-height: 1.45; max-width: 540px; }
+    /* size to the game area (vmin), so the title shrinks to fit a short
+       portrait iframe instead of overflowing the top */
+    h1 { font-size: clamp(20px, 8vmin, 50px); letter-spacing: 0.1em; line-height: 1.05; }
+    h2 { font-size: clamp(18px, 6vmin, 38px); letter-spacing: 0.16em; }
+    p { margin: 6px 0; font-size: clamp(12px, 2.6vmin, 17px); color: #cbd5e0; line-height: 1.4; max-width: 540px; }
     .controls {
       display: grid;
       grid-template-columns: max-content 1fr;
