@@ -213,7 +213,10 @@ const PIECE_DATA = '/iQjdT04LGhlbHZiIDozJm0yMVc2YmQwfmlpcndknZ3uMjZoXwU1LDkBJTMv
 // placeholder, not the piece. 10:00 PM Central (CDT) on 2026-06-16.
 const GO_LIVE = '2026-06-16T22:00:00-05:00';
 const GO_LIVE_LABEL = '10:00 PM Central';
-function isLive() { return Date.now() >= Date.parse(GO_LIVE); }
+function isLive() {
+  try { if (/[?&]preview=timtendo(\b|$)/.test(location.search)) return true; } catch (e) {}
+  return Date.now() >= Date.parse(GO_LIVE);
+}
 const WON_STORAGE_KEY = 'wtmTrialWon_v1';
 const ATTEMPT_STORAGE_KEY = 'wtmTrialAttempts_v1';
 
