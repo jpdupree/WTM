@@ -133,7 +133,10 @@
   /* ===== CONFIG ===================================================== */
   var GAME_URL = 'https://jpdupree.github.io/wtm/wtm-runner.html'; // Pages URL
   var UNLOCK_CODE = ['U','U','D','D','L','R','L','R','B','A'];     // Konami
+  var GO_LIVE = '2026-06-16T22:00:00-05:00';   // 10:00 PM Central (CDT)
+  var GO_LIVE_LABEL = '10:00 PM CT tonight';
   /* ================================================================== */
+  function isLive() { return Date.now() >= Date.parse(GO_LIVE); }
 
   var root = document.getElementById('wtm-hunt');
   var trigger = document.getElementById('wtm-trigger');
@@ -163,6 +166,12 @@
 
   function unlock() {
     if (unlocked) return;
+    if (!isLive()) {
+      // right code, but the hunt hasn't opened yet — tease, don't reveal
+      msg.textContent = 'opens ' + GO_LIVE_LABEL; msg.className = 'wtm-msg good';
+      buf = []; paintDots(0);
+      return;
+    }
     unlocked = true;
     msg.textContent = 'unlocked!'; msg.className = 'wtm-msg good';
     frame.src = GAME_URL;                       // load the game only now

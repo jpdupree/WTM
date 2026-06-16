@@ -209,6 +209,11 @@
 const PIECE_KEY = 'wtm2026belvoir';
 const PIECE_MIME = ''; // PIECE_MIME
 const PIECE_DATA = ''; // PIECE_DATA
+// The prize is time-locked: even beating the game before this moment shows the
+// placeholder, not the piece. 10:00 PM Central (CDT) on 2026-06-16.
+const GO_LIVE = '2026-06-16T22:00:00-05:00';
+const GO_LIVE_LABEL = '10:00 PM Central';
+function isLive() { return Date.now() >= Date.parse(GO_LIVE); }
 const WON_STORAGE_KEY = 'wtmTrialWon_v1';
 const ATTEMPT_STORAGE_KEY = 'wtmTrialAttempts_v1';
 
@@ -531,7 +536,7 @@ function decodePiece() {
   }
 }
 function loadPuzzlePiece() {
-  const url = decodePiece();
+  const url = isLive() ? decodePiece() : null;
   if (url) {
     pieceImg.hidden = false;
     piecePlaceholder.hidden = true;
@@ -539,6 +544,11 @@ function loadPuzzlePiece() {
   } else {
     pieceImg.hidden = true;
     piecePlaceholder.hidden = false;
+    // Before go-live, tell the winner the prize is coming rather than showing
+    // the dev placeholder.
+    if (!isLive()) {
+      piecePlaceholder.textContent = 'Your prize unlocks at ' + GO_LIVE_LABEL + '. Come back then.';
+    }
   }
 }
 
