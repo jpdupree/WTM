@@ -37,11 +37,15 @@
     }
     .overlay {
       position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center;
+      /* `safe center` falls back to flex-start when content overflows the
+         iframe, so the top of the win card (image + heading) never gets
+         clipped above the viewport on portrait phones. */
+      justify-content: safe center;
       flex-direction: column;
       text-align: center;
       padding: 4% 6%;
-      overflow-y: auto;            /* never clip on short (portrait) iframes */
+      overflow-y: auto;
       background: rgba(0, 0, 0, 0.55);
       backdrop-filter: blur(2px);
       transition: opacity .25s ease;
