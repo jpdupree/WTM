@@ -37,11 +37,15 @@
     }
     .overlay {
       position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center;
+      /* `safe center` falls back to flex-start when content overflows the
+         iframe, so the top of the win card (image + heading) never gets
+         clipped above the viewport on portrait phones. */
+      justify-content: safe center;
       flex-direction: column;
       text-align: center;
       padding: 4% 6%;
-      overflow-y: auto;            /* never clip on short (portrait) iframes */
+      overflow-y: auto;
       background: rgba(0, 0, 0, 0.55);
       backdrop-filter: blur(2px);
       transition: opacity .25s ease;
@@ -131,6 +135,8 @@
       padding: 20px;
       margin: 12px 0;
     }
+    /* the [hidden] attribute must win over display:flex above */
+    .placeholder[hidden], #piece[hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -518,21 +524,30 @@ function markWon() {
 const pieceImg = document.getElementById('piece');
 const piecePlaceholder = document.getElementById('piece-placeholder');
 pieceImg.addEventListener('error', () => {
+  // Long base64 data URLs sometimes don't render in Facebook/Instagram/Messenger
+  // in-app browsers. If decode succeeded but the image still won't show, hand
+  // the player a useful message rather than the dev placeholder.
   pieceImg.hidden = true;
   piecePlaceholder.hidden = false;
+  if (decodePiece()) {
+    piecePlaceholder.textContent =
+      'Image didn\'t render in this browser. Open the page in your phone\'s real browser (Safari / Chrome) and try again.';
+  }
 });
-// Reverse the XOR + base64 obfuscation into an inline data URL.
+// Reverse the XOR obfuscation into a Blob URL. Blob URLs are much better
+// supported in in-app browsers than long base64 data URLs.
+let pieceObjectUrl = null;
 function decodePiece() {
   if (!PIECE_DATA || !PIECE_MIME) return null;
   try {
     const blob = atob(PIECE_DATA);
-    let out = '';
+    const bytes = new Uint8Array(blob.length);
     for (let i = 0; i < blob.length; i++) {
-      out += String.fromCharCode(
-        blob.charCodeAt(i) ^ PIECE_KEY.charCodeAt(i % PIECE_KEY.length),
-      );
+      bytes[i] = blob.charCodeAt(i) ^ PIECE_KEY.charCodeAt(i % PIECE_KEY.length);
     }
-    return 'data:' + PIECE_MIME + ';base64,' + btoa(out);
+    if (pieceObjectUrl) URL.revokeObjectURL(pieceObjectUrl);
+    pieceObjectUrl = URL.createObjectURL(new Blob([bytes], { type: PIECE_MIME }));
+    return pieceObjectUrl;
   } catch {
     return null;
   }
