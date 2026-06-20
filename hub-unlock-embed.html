@@ -1,30 +1,36 @@
 <!--
-  WTM Puzzle Hunter — hub unlock + embed block.
+  WTM Puzzle Hunter — hub unlock + embed block (post-hunt edition).
 
   Paste EVERYTHING below (the <div>, <style>, and <script>) into a single
   WordPress "Custom HTML" block on theocrreport.com/wtm.
 
-  How it works:
-    1. A subtle hidden button sits on the page (the small dim controller dot).
-       Finding it is step one of the hunt.
-    2. Tapping it pops up a Nintendo-style controller.
-    3. The player taps the Konami code on the controller — Up Up Down Down
-       Left Right Left Right B A — to unlock the game.
-    4. The game (wtm-runner.html on GitHub Pages) is loaded into an iframe
-       right here on the page; the visitor never leaves /wtm.
-
-  TWO THINGS TO EDIT (marked CONFIG below):
-    • GAME_URL  — your GitHub Pages URL for wtm-runner.html
-    • UNLOCK_CODE — leave as the Konami code, or change it.
-
-  Optional: to use one of your OWN page elements (e.g. your logo) as the
-  hidden trigger instead of the dot, give that element id="wtm-trigger"
-  and delete the <button id="wtm-trigger"> line below.
+  The puzzle has been solved and the prize claimed. The controller now
+  shows by default with the code spelled out above it, so anyone can still
+  play the game on the page.
 -->
 <div id="wtm-hunt">
   <button id="wtm-trigger" type="button" aria-label="?">●</button>
 
-  <div id="wtm-pad" class="wtm-hidden" role="dialog" aria-label="Enter the code">
+  <div id="wtm-solved" role="status">
+    <h2>Puzzle Solved</h2>
+    <p>The community cracked the code &mdash; the hidden prize has been claimed.</p>
+    <p class="wtm-howto">Want to play anyway? Enter the code on the controller below:</p>
+    <p class="wtm-code">
+      <span class="wtm-arrow">&uarr;</span>
+      <span class="wtm-arrow">&uarr;</span>
+      <span class="wtm-arrow">&darr;</span>
+      <span class="wtm-arrow">&darr;</span>
+      <span class="wtm-arrow">&larr;</span>
+      <span class="wtm-arrow">&rarr;</span>
+      <span class="wtm-arrow">&larr;</span>
+      <span class="wtm-arrow">&rarr;</span>
+      <span class="wtm-key">B</span>
+      <span class="wtm-key">A</span>
+      <span class="wtm-key">START</span>
+    </p>
+  </div>
+
+  <div id="wtm-pad" role="dialog" aria-label="Enter the code">
     <div class="wtm-pad-shell">
       <div class="wtm-brand">TiMtendo</div>
       <div class="wtm-row">
@@ -61,14 +67,38 @@
   #wtm-hunt { position: relative; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   .wtm-hidden { display: none !important; }
 
-  /* the hidden trigger — a dim little dot; make it as findable as you like */
-  #wtm-trigger {
-    width: 16px; height: 16px; padding: 0; line-height: 1;
-    border-radius: 50%; border: 0; cursor: pointer;
-    background: transparent; color: rgba(140,140,140,0.30);
-    font-size: 14px;
+  /* hunt is over — the secret trigger no longer matters */
+  #wtm-trigger { display: none; }
+
+  /* solved banner */
+  #wtm-solved {
+    max-width: 540px; margin: 16px auto 4px; text-align: center;
+    background: #1b2630; color: #e8edf2;
+    border: 1px solid rgba(240,180,0,0.35); border-radius: 10px;
+    padding: 16px 20px 18px;
   }
-  #wtm-trigger:hover { color: rgba(240,180,0,0.85); }
+  #wtm-solved h2 {
+    margin: 0 0 6px; font-size: 22px; color: #f0b400;
+    letter-spacing: 0.04em; font-weight: 800;
+  }
+  #wtm-solved p { margin: 6px 0; font-size: 15px; line-height: 1.45; }
+  #wtm-solved .wtm-howto { margin-top: 10px; color: #cfd6dd; }
+  #wtm-solved .wtm-code {
+    margin-top: 10px; display: flex; flex-wrap: wrap;
+    justify-content: center; align-items: center; gap: 6px;
+  }
+  #wtm-solved .wtm-arrow {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; height: 28px; padding: 0 6px;
+    background: #2b2b2b; color: #f0b400; border-radius: 5px;
+    font-size: 16px; font-weight: 700;
+  }
+  #wtm-solved .wtm-key {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; height: 28px; padding: 0 10px;
+    background: #8a1f1f; color: #ffeedd; border-radius: 14px;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.06em;
+  }
 
   /* controller */
   #wtm-pad { margin: 18px auto; max-width: 360px; }
