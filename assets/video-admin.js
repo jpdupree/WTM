@@ -310,8 +310,155 @@ function matchesFilters(s) {
   return true;
 }
 
+// Update only the state-dependent bits of a card (active highlight, viewed
+// styling, Load button). Leaves the iframe and meta untouched so a playing
+// video survives a re-render.
+function updateCardState(card) {
+  const s = card._sub;
+  const isActive = s.id === activeId;
+  card.className =
+    "video-card" + (isActive ? " active" : "") + (s.viewed ? " viewed" : "");
+  const cb = card.querySelector(".viewed-cb");
+  if (cb) cb.checked = Boolean(s.viewed);
+  const showBtn = card.querySelector(".show-btn");
+  if (showBtn) {
+    showBtn.classList.toggle("on", isActive);
+    showBtn.textContent = isActive ? "● Loaded — clear" : "Load into vMix";
+  }
+}
+
+function buildCard(s) {
+  const card = document.createElement("div");
+  card.dataset.id = s.id;
+  card._sub = s;
+
+  const frame = document.createElement("iframe");
+  frame.className = "preview";
+  frame.src = `https://drive.google.com/file/d/${s.fileId}/preview`;
+  frame.allow = "encrypted-media";
+  frame.loading = "lazy";
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  const who = document.createElement("div");
+  who.className = "who";
+  who.textContent = s.name || "Anonymous";
+  meta.appendChild(who);
+
+  if (s.submittedAt) {
+    const d = new Date(s.submittedAt);
+    if (!isNaN(d.getTime())) {
+      const when = document.createElement("div");
+      when.className = "when";
+      when.textContent = "Submitted " + d.toLocaleString();
+      meta.appendChild(when);
+    }
+  }
+
+  if (s.fields && s.fields.length) {
+    const dl = document.createElement("dl");
+    dl.className = "fields";
+    let typeText = "";
+    let exciteText = "";
+    for (const f of s.fields) {
+      const label = shortLabel(f.q);
+      if (label === null) continue;
+      const value = label === "Video Type" ? shortType(f.a) : f.a;
+      if (label === "Video Type") typeText = value;
+      if (label === "Excitement Level") exciteText = f.a;
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = value;
+      dl.append(dt, dd);
+    }
+    if (dl.children.length) {
+      // Always-visible one-line triage summary.
+      const bits = [];
+      if (typeText) bits.push(typeText);
+      if (exciteText) bits.push("Excitement " + exciteText);
+      if (bits.length) {
+        const summary = document.createElement("div");
+        summary.className = "summary";
+        summary.textContent = bits.join(" · ");
+        meta.appendChild(summary);
+      }
+      // Full fields collapse away — start collapsed on phones/tablets so
+      // the video isn't crowded while it plays.
+      const details = document.createElement("div");
+      details.className = "details";
+      details.appendChild(dl);
+      if (window.matchMedia("(max-width: 760px)").matches) {
+        details.classList.add("collapsed");
+      }
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "details-toggle";
+      const syncToggle = () => {
+        const open = !details.classList.contains("collapsed");
+        toggle.textContent = open ? "Hide details ▴" : "Show details ▾";
+      };
+      toggle.addEventListener("click", () => {
+        details.classList.toggle("collapsed");
+        syncToggle();
+      });
+      syncToggle();
+      meta.append(toggle, details);
+    }
+  } else if (s.caption) {
+    const cap = document.createElement("div");
+    cap.className = "caption";
+    cap.textContent = s.caption;
+    meta.appendChild(cap);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "card-actions";
+
+  const viewed = document.createElement("label");
+  viewed.className = "viewed-toggle";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.className = "viewed-cb";
+  cb.addEventListener("change", () => {
+    const cur = card._sub;
+    setVideoSubmission(cur.id, { ...cur, viewed: cb.checked });
+  });
+  viewed.append(cb, document.createTextNode("Viewed"));
+
+  const showBtn = document.createElement("button");
+  showBtn.type = "button";
+  showBtn.className = "show-btn";
+  showBtn.addEventListener("click", () => {
+    const cur = card._sub;
+    if (cur.id === activeId) writeControl("videoSubmission", null);
+    else
+      writeControl("videoSubmission", {
+        id: cur.id,
+        fileId: cur.fileId,
+        name: cur.name || "",
+        caption: cur.caption || "",
+      });
+  });
+
+  const x = document.createElement("button");
+  x.type = "button";
+  x.className = "x-btn";
+  x.textContent = "×";
+  x.title = "Hide from wall";
+  x.addEventListener("click", () => {
+    const cur = card._sub;
+    setVideoSubmission(cur.id, { ...cur, hidden: true });
+    if (cur.id === activeId) writeControl("videoSubmission", null);
+  });
+
+  actions.append(viewed, showBtn, x);
+  card.append(frame, meta, actions);
+  updateCardState(card);
+  return card;
+}
+
 function render() {
-  grid.innerHTML = "";
   const all = Object.values(submissions)
     .filter((s) => s && !s.hidden && s.fileId)
     .sort((a, b) =>
@@ -325,151 +472,49 @@ function render() {
     ? `${list.length} of ${all.length} shown · ${unviewed} unviewed`
     : "";
 
-  if (all.length === 0) {
+  if (all.length === 0 || list.length === 0) {
+    grid.innerHTML = "";
     const note = document.createElement("div");
     note.className = "empty-note";
-    note.textContent = autoPull
-      ? "No submissions yet — they'll appear here as they come in."
-      : "No clips added yet.";
-    grid.appendChild(note);
-    return;
-  }
-  if (list.length === 0) {
-    const note = document.createElement("div");
-    note.className = "empty-note";
-    note.textContent = "No submissions match the filters.";
+    note.textContent =
+      all.length === 0
+        ? autoPull
+          ? "No submissions yet — they'll appear here as they come in."
+          : "No clips added yet."
+        : "No submissions match the filters.";
     grid.appendChild(note);
     return;
   }
 
+  // Reconcile against what's already on screen so a playing iframe is never
+  // torn down: reuse cards by id, refresh only their dynamic state, and build
+  // new cards only for clips we haven't shown yet.
+  grid.querySelectorAll(".empty-note").forEach((n) => n.remove());
+  const existing = new Map();
+  for (const el of grid.querySelectorAll(".video-card")) {
+    existing.set(el.dataset.id, el);
+  }
+
+  const ordered = [];
   for (const s of list) {
-    const isActive = s.id === activeId;
-    const card = document.createElement("div");
-    card.className =
-      "video-card" + (isActive ? " active" : "") + (s.viewed ? " viewed" : "");
-
-    const frame = document.createElement("iframe");
-    frame.className = "preview";
-    frame.src = `https://drive.google.com/file/d/${s.fileId}/preview`;
-    frame.allow = "encrypted-media";
-    frame.loading = "lazy";
-
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    const who = document.createElement("div");
-    who.className = "who";
-    who.textContent = s.name || "Anonymous";
-    meta.appendChild(who);
-
-    if (s.submittedAt) {
-      const d = new Date(s.submittedAt);
-      if (!isNaN(d.getTime())) {
-        const when = document.createElement("div");
-        when.className = "when";
-        when.textContent = "Submitted " + d.toLocaleString();
-        meta.appendChild(when);
-      }
+    let card = existing.get(s.id);
+    if (card) {
+      card._sub = s;
+      updateCardState(card);
+      existing.delete(s.id);
+    } else {
+      card = buildCard(s);
     }
-
-    if (s.fields && s.fields.length) {
-      const dl = document.createElement("dl");
-      dl.className = "fields";
-      let typeText = "";
-      let exciteText = "";
-      for (const f of s.fields) {
-        const label = shortLabel(f.q);
-        if (label === null) continue;
-        const value = label === "Video Type" ? shortType(f.a) : f.a;
-        if (label === "Video Type") typeText = value;
-        if (label === "Excitement Level") exciteText = f.a;
-        const dt = document.createElement("dt");
-        dt.textContent = label;
-        const dd = document.createElement("dd");
-        dd.textContent = value;
-        dl.append(dt, dd);
-      }
-      if (dl.children.length) {
-        // Always-visible one-line triage summary.
-        const bits = [];
-        if (typeText) bits.push(typeText);
-        if (exciteText) bits.push("Excitement " + exciteText);
-        if (bits.length) {
-          const summary = document.createElement("div");
-          summary.className = "summary";
-          summary.textContent = bits.join(" · ");
-          meta.appendChild(summary);
-        }
-        // Full fields collapse away — start collapsed on phones/tablets so
-        // the video isn't crowded while it plays.
-        const details = document.createElement("div");
-        details.className = "details";
-        details.appendChild(dl);
-        if (window.matchMedia("(max-width: 760px)").matches) {
-          details.classList.add("collapsed");
-        }
-        const toggle = document.createElement("button");
-        toggle.type = "button";
-        toggle.className = "details-toggle";
-        const syncToggle = () => {
-          const open = !details.classList.contains("collapsed");
-          toggle.textContent = open ? "Hide details ▴" : "Show details ▾";
-        };
-        toggle.addEventListener("click", () => {
-          details.classList.toggle("collapsed");
-          syncToggle();
-        });
-        syncToggle();
-        meta.append(toggle, details);
-      }
-    } else if (s.caption) {
-      const cap = document.createElement("div");
-      cap.className = "caption";
-      cap.textContent = s.caption;
-      meta.appendChild(cap);
-    }
-
-    const actions = document.createElement("div");
-    actions.className = "card-actions";
-
-    const viewed = document.createElement("label");
-    viewed.className = "viewed-toggle";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = Boolean(s.viewed);
-    cb.addEventListener("change", () =>
-      setVideoSubmission(s.id, { ...s, viewed: cb.checked }),
-    );
-    viewed.append(cb, document.createTextNode("Viewed"));
-
-    const showBtn = document.createElement("button");
-    showBtn.type = "button";
-    showBtn.className = "show-btn" + (isActive ? " on" : "");
-    showBtn.textContent = isActive ? "● Loaded — clear" : "Load into vMix";
-    showBtn.addEventListener("click", () => {
-      if (isActive) writeControl("videoSubmission", null);
-      else
-        writeControl("videoSubmission", {
-          id: s.id,
-          fileId: s.fileId,
-          name: s.name || "",
-          caption: s.caption || "",
-        });
-    });
-
-    const x = document.createElement("button");
-    x.type = "button";
-    x.className = "x-btn";
-    x.textContent = "×";
-    x.title = "Hide from wall";
-    x.addEventListener("click", () => {
-      setVideoSubmission(s.id, { ...s, hidden: true });
-      if (s.id === activeId) writeControl("videoSubmission", null);
-    });
-
-    actions.append(viewed, showBtn, x);
-    card.append(frame, meta, actions);
-    grid.appendChild(card);
+    ordered.push(card);
   }
+  // Remove cards whose clip is gone or filtered out.
+  for (const el of existing.values()) el.remove();
+  // Place cards in order, moving (not re-creating) any that shifted.
+  ordered.forEach((card, i) => {
+    if (grid.children[i] !== card) {
+      grid.insertBefore(card, grid.children[i] || null);
+    }
+  });
 }
 
 for (const el of [fStatus, fType]) el.addEventListener("change", render);
