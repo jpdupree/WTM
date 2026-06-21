@@ -86,6 +86,21 @@ button.ghost:hover { background: var(--panel); filter: none; color: var(--text);
 
 .video-card .when { margin-top: 2px; font-size: 0.72rem; color: var(--muted); }
 
+.video-card .summary { margin-top: 4px; font-size: 0.8rem; color: var(--muted); }
+.video-card .details.collapsed { display: none; }
+.video-card .details-toggle {
+  margin-top: 8px;
+  background: var(--panel-2);
+  color: var(--accent-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.video-card .details-toggle:hover { background: var(--line); filter: none; }
+
 .video-card .fields { margin: 8px 0 0; }
 .video-card .fields dt {
   margin-top: 9px;

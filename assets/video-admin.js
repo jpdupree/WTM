@@ -374,16 +374,53 @@ function render() {
     if (s.fields && s.fields.length) {
       const dl = document.createElement("dl");
       dl.className = "fields";
+      let typeText = "";
+      let exciteText = "";
       for (const f of s.fields) {
         const label = shortLabel(f.q);
         if (label === null) continue;
+        const value = label === "Video Type" ? shortType(f.a) : f.a;
+        if (label === "Video Type") typeText = value;
+        if (label === "Excitement Level") exciteText = f.a;
         const dt = document.createElement("dt");
         dt.textContent = label;
         const dd = document.createElement("dd");
-        dd.textContent = label === "Video Type" ? shortType(f.a) : f.a;
+        dd.textContent = value;
         dl.append(dt, dd);
       }
-      if (dl.children.length) meta.appendChild(dl);
+      if (dl.children.length) {
+        // Always-visible one-line triage summary.
+        const bits = [];
+        if (typeText) bits.push(typeText);
+        if (exciteText) bits.push("Excitement " + exciteText);
+        if (bits.length) {
+          const summary = document.createElement("div");
+          summary.className = "summary";
+          summary.textContent = bits.join(" · ");
+          meta.appendChild(summary);
+        }
+        // Full fields collapse away — start collapsed on phones/tablets so
+        // the video isn't crowded while it plays.
+        const details = document.createElement("div");
+        details.className = "details";
+        details.appendChild(dl);
+        if (window.matchMedia("(max-width: 760px)").matches) {
+          details.classList.add("collapsed");
+        }
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "details-toggle";
+        const syncToggle = () => {
+          const open = !details.classList.contains("collapsed");
+          toggle.textContent = open ? "Hide details ▴" : "Show details ▾";
+        };
+        toggle.addEventListener("click", () => {
+          details.classList.toggle("collapsed");
+          syncToggle();
+        });
+        syncToggle();
+        meta.append(toggle, details);
+      }
     } else if (s.caption) {
       const cap = document.createElement("div");
       cap.className = "caption";
