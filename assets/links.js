@@ -4,5 +4,5 @@
 
 export const VMIX_LINKS = {
   social: "http://3.13.52.199:8089/",
-  telestrator: "http://3.13.52.199:8088/telestrator",
+  telestrator: "http://3.13.52.199:8088/telestrator/",
 };
