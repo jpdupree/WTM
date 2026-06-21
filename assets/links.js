@@ -3,6 +3,6 @@
 // just shows as disabled until you fill it in.
 
 export const VMIX_LINKS = {
-  social: "http://172.13.104.161:8089/",
+  social: "http://3.13.52.199:8089/",
   telestrator: "http://3.13.52.199:8088/telestrator",
 };
