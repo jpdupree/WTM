@@ -337,6 +337,17 @@ function buildCard(s) {
   frame.src = `https://drive.google.com/file/d/${s.fileId}/preview`;
   frame.allow = "encrypted-media";
   frame.loading = "lazy";
+  // Size the box to the clip's real orientation so vertical videos get the
+  // room they need instead of being cropped inside a 16:9 frame. Drive's
+  // thumbnail carries the native aspect ratio; read it and apply it (we fall
+  // back to the CSS 16:9 default if the thumb can't be read).
+  const probe = new Image();
+  probe.onload = () => {
+    if (probe.naturalWidth > 1 && probe.naturalHeight > 1) {
+      frame.style.aspectRatio = `${probe.naturalWidth} / ${probe.naturalHeight}`;
+    }
+  };
+  probe.src = `https://drive.google.com/thumbnail?id=${s.fileId}&sz=w480`;
 
   const meta = document.createElement("div");
   meta.className = "meta";
