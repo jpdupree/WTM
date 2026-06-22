@@ -21,7 +21,7 @@
 //       - vmixApi / vmixInput: your vMix API URL and the input name.
 //   • Then: node scripts/vmix-video-poll.mjs
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const DB = "https://wtm-broadcast-default-rtdb.firebaseio.com";
@@ -99,27 +99,72 @@ async function driveMeta(id) {
   return j;
 }
 
-// Build the local Drive-for-Desktop path for a clip. Tries the fast path
-// (responsesFolder + filename, which is where the Form drops uploads) first;
-// falls back to walking the file's parent chain via the Drive API so clips
-// added by hand from anywhere else in My Drive still resolve.
+// Walk driveRoot looking for files named `filename`. Returns up to `limit`
+// matches. Cheap on a normal Drive (<<1s) and survives Drive API permission
+// quirks that block the parent-chain walk for manually added clips.
+function findLocalFiles(root, filename, limit = 5) {
+  if (!root || !existsSync(root)) return [];
+  const matches = [];
+  const stack = [root];
+  while (stack.length && matches.length < limit) {
+    const dir = stack.pop();
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue; // permission denied / transient — skip this subtree
+    }
+    for (const e of entries) {
+      if (e.name.startsWith(".") || e.name === "$RECYCLE.BIN") continue;
+      const p = join(dir, e.name);
+      if (e.isDirectory()) stack.push(p);
+      else if (e.name === filename) matches.push(p);
+    }
+  }
+  return matches;
+}
+
+// Build the local Drive-for-Desktop path for a clip. Tries the form responses
+// folder first (fast path), then a parent-chain walk via the Drive API, then
+// finally scans driveRoot for the filename — that last step handles clips
+// added by hand from anywhere in My Drive when the API can't see their
+// parents (common with API-key auth).
 async function localPathFor(fileId) {
   const name = await driveName(fileId);
+
   if (responsesFolder) {
     const direct = join(responsesFolder, name);
     if (existsSync(direct)) return direct;
   }
   if (!driveRoot) return join(responsesFolder || "", name);
-  // Walk up parents. driveMeta caches, so a folder is fetched at most once.
-  const segments = [name];
-  let parents = (await driveMeta(fileId)).parents || [];
-  while (parents.length) {
-    const p = await driveMeta(parents[0]);
-    if (!p.parents || !p.parents.length) break; // hit My Drive (or shared root)
-    segments.unshift(p.name);
-    parents = p.parents;
+
+  // Parent-chain walk (works when the API can see every parent).
+  try {
+    const segments = [name];
+    let parents = (await driveMeta(fileId)).parents || [];
+    while (parents.length) {
+      const p = await driveMeta(parents[0]);
+      if (!p.parents || !p.parents.length) break;
+      segments.unshift(p.name);
+      parents = p.parents;
+    }
+    if (segments.length > 1) {
+      const apiPath = join(driveRoot, ...segments);
+      if (existsSync(apiPath)) return apiPath;
+    }
+  } catch (e) {
+    console.warn(`  parent walk failed: ${e.message}`);
   }
-  return join(driveRoot, ...segments);
+
+  // Local filesystem scan fallback.
+  const matches = findLocalFiles(driveRoot, name);
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) {
+    console.warn(`  ! ${matches.length} files named "${name}" found locally — using the first:`);
+    for (const m of matches) console.warn(`      ${m}`);
+    return matches[0];
+  }
+  return join(driveRoot, name); // nothing found — return for the warning to print
 }
 
 // Call a vMix API function. encodeURIComponent keeps the path intact
