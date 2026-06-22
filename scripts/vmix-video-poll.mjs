@@ -37,6 +37,14 @@ try {
 }
 const driveApiKey = process.env.WTM_DRIVE_API_KEY || cfg.driveApiKey;
 const responsesFolder = process.env.WTM_RESPONSES_FOLDER || cfg.responsesFolder;
+// Local mount point of Drive-for-Desktop's My Drive (e.g. "G:\\My Drive").
+// Needed to resolve clips added manually from anywhere else in Drive. If
+// missing, fall back to whatever sits one level above responsesFolder, which
+// is "<drive>:\My Drive" for a normal Drive-for-Desktop install.
+const driveRoot =
+  process.env.WTM_DRIVE_ROOT ||
+  cfg.driveRoot ||
+  (responsesFolder ? responsesFolder.split(/[\\/]/).slice(0, 2).join("\\") : "");
 const vmixApi = (
   process.env.WTM_VMIX_API ||
   cfg.vmixApi ||
@@ -73,13 +81,45 @@ async function getJson(url) {
 const nameCache = new Map();
 async function driveName(id) {
   if (nameCache.has(id)) return nameCache.get(id);
+  const meta = await driveMeta(id);
+  nameCache.set(id, meta.name);
+  return meta.name;
+}
+
+// Fetch name + parents for a Drive id (used for both files and folders).
+const metaCache = new Map();
+async function driveMeta(id) {
+  if (metaCache.has(id)) return metaCache.get(id);
   const url =
     `https://www.googleapis.com/drive/v3/files/${id}` +
-    `?fields=name&supportsAllDrives=true&key=${driveApiKey}`;
+    `?fields=name,parents,driveId&supportsAllDrives=true&key=${driveApiKey}`;
   const j = await getJson(url);
   if (!j.name) throw new Error(`Drive returned no name for ${id}`);
-  nameCache.set(id, j.name);
-  return j.name;
+  metaCache.set(id, j);
+  return j;
+}
+
+// Build the local Drive-for-Desktop path for a clip. Tries the fast path
+// (responsesFolder + filename, which is where the Form drops uploads) first;
+// falls back to walking the file's parent chain via the Drive API so clips
+// added by hand from anywhere else in My Drive still resolve.
+async function localPathFor(fileId) {
+  const name = await driveName(fileId);
+  if (responsesFolder) {
+    const direct = join(responsesFolder, name);
+    if (existsSync(direct)) return direct;
+  }
+  if (!driveRoot) return join(responsesFolder || "", name);
+  // Walk up parents. driveMeta caches, so a folder is fetched at most once.
+  const segments = [name];
+  let parents = (await driveMeta(fileId)).parents || [];
+  while (parents.length) {
+    const p = await driveMeta(parents[0]);
+    if (!p.parents || !p.parents.length) break; // hit My Drive (or shared root)
+    segments.unshift(p.name);
+    parents = p.parents;
+  }
+  return join(driveRoot, ...segments);
 }
 
 // Call a vMix API function. encodeURIComponent keeps the path intact
@@ -94,10 +134,13 @@ async function vmix(params) {
 
 async function loadClip(fileId) {
   const name = await driveName(fileId);
-  const path = join(responsesFolder, name);
+  const path = await localPathFor(fileId);
   if (!existsSync(path)) {
     console.warn(`  ! not found locally: ${path}`);
-    console.warn(`    check responsesFolder, or that Drive has synced "${name}".`);
+    console.warn(`    check driveRoot, or that Drive has synced "${name}".`);
+    // Don't ListAdd a bogus path — vMix would accept the string and silently
+    // play nothing.
+    return;
   }
   // Keep one input you always cut to: clear it, add this clip, select it.
   await vmix({ Function: "ListRemoveAll", Input: vmixInput });
@@ -106,7 +149,7 @@ async function loadClip(fileId) {
   await vmix({ Function: "SelectIndex", Input: vmixInput, Value: "1" });
   await vmix({ Function: "Restart", Input: vmixInput });
   if (playOnLoad) await vmix({ Function: "Play", Input: vmixInput });
-  console.log(`  -> loaded into "${vmixInput}": ${name}`);
+  console.log(`  -> loaded into "${vmixInput}": ${path}`);
 }
 
 // One-shot diagnostic: `node scripts/vmix-video-poll.mjs --test <fileId>`
@@ -115,6 +158,7 @@ async function selfTest(id) {
   console.log("== WTM vMix bridge self-test ==");
   console.log("vmixApi:         ", vmixApi);
   console.log("vmixInput:       ", vmixInput);
+  console.log("driveRoot:       ", driveRoot || "(missing)");
   console.log("responsesFolder: ", responsesFolder);
   console.log(
     "driveApiKey:     ",
@@ -140,10 +184,14 @@ async function selfTest(id) {
   }
 
   if (name) {
-    const p = join(responsesFolder, name);
-    console.log(
-      existsSync(p) ? `[ok]   local file exists: ${p}` : `[FAIL] local file not found: ${p}`,
-    );
+    try {
+      const p = await localPathFor(id);
+      console.log(
+        existsSync(p) ? `[ok]   local file exists: ${p}` : `[FAIL] local file not found: ${p}`,
+      );
+    } catch (e) {
+      console.log(`[FAIL] local path lookup: ${e.message}`);
+    }
   }
 
   try {

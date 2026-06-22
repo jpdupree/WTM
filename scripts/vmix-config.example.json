@@ -1,5 +1,6 @@
 {
   "driveApiKey": "YOUR_GOOGLE_API_KEY_WITH_DRIVE_API_ENABLED",
+  "driveRoot": "G:\\My Drive",
   "responsesFolder": "G:\\My Drive\\World's Toughest Mudder Video Submission Form (File responses)\\Upload your video file (Max file size 100MB; accepted formats  MP4, MOV, WMV). (File responses)",
   "vmixApi": "http://127.0.0.1:8088/api/",
   "vmixInput": "Submission Clip",
