@@ -201,13 +201,20 @@ whole event.
       and `apiKey` (copy from `larix-credentials.example.json`).
 - [ ] The machine's public IP — use a **static Elastic IP** — is
       whitelisted in Larix Tuner → Account → API setup.
-- [ ] For each camera's device in Larix Tuner:
-  - description = the camera's map name ("Cam 1", …)
-  - remote control enabled
-  - **Location information → Enabled** in the remote-control panel
-- [ ] Each phone: Larix Premium active, location permission granted.
+- [ ] For each camera's device in Larix Tuner, open the device and, in order:
+  1. **Set the description** — this is the label that shows up on the map
+     ("Cam 1", "Finish Line", …). Easy to skip; do it right after opening
+     the camera.
+  2. Enable **remote control**.
+  3. **Location information → Enabled** in the remote-control panel — the
+     toggle that clears the "Getting location is OFF" error.
+- [ ] Each phone: Larix Premium active, OS location permission granted.
 - [ ] Start the poller: `node scripts/rabbit-poll.mjs` — leave the
       window open. Lines like `+ Cam 1: 52.89…, -0.77…` mean it's live.
+
+> The camera reports its position as soon as the three Tuner steps above are
+> set — it does **not** need to be actively streaming video
+> (`active_session=false` in the log is fine).
 
 > **New Larix Tuner account?** Nothing in the dashboard code changes.
 > Just enable the API on the new account, put the new `clientId` /
@@ -241,8 +248,9 @@ copy into the `Submission Clip` VideoList input — you cut to that input.
 |---------|-----|
 | Leaderboard not updating live | The results poller isn't running — start `node scripts/results-poll.mjs` on the AWS machine. Until then the pages fall back to the 5–10 min GitHub Action. |
 | Camera poller `HTTP 403` | The machine's IP isn't whitelisted — check its current public IP and update the Tuner whitelist. |
-| `geo_granted=false` | Enable remote control for that device in Tuner. |
-| `no location (status=error)` | Turn on **Location information → Enabled** in that device's remote-control panel. |
+| `geo_granted=false` | Grant Larix the OS location permission on that phone (Settings → app permissions) and make sure location sharing is on in the app. |
+| `no location … "Getting location is OFF"` | Turn on **Location information → Enabled** in that device's Tuner remote-control panel. A live video stream is **not** required. |
+| Wrong or blank camera name on the map | Set the device **description** in Larix Tuner — that's the map label. |
 | Camera missing from a map | Confirm the poller window shows a `+` line for it; check the map's Rabbits toggle is on. |
 | Pages show old content | Hard-refresh or use a private window; the GitHub Pages CDN can lag 1–2 min after a push. |
 | Commentator banner is orange | Firebase not connected — check `assets/firebase-config.js`. |
