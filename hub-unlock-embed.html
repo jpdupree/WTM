@@ -11,6 +11,15 @@
 <div id="wtm-hunt">
   <button id="wtm-trigger" type="button" aria-label="?">●</button>
 
+  <a id="wtm-infopack"
+     href="https://sites.google.com/spartan.com/wtmhub/home/wtm-2026-info-pack"
+     target="_blank" rel="noopener">
+    <span class="wtm-ip-eyebrow">Tough Mudder &mdash; Official</span>
+    <span class="wtm-ip-title">WTM 2026 Info Pack</span>
+    <span class="wtm-ip-sub">Schedule, course details, registration logistics, athlete &amp; spectator info.</span>
+    <span class="wtm-ip-cta">Open the Info Pack &rarr;</span>
+  </a>
+
   <div id="wtm-solved" role="status">
     <h2>Puzzle Solved</h2>
     <p>The community cracked the code &mdash; the hidden prize has been claimed.</p>
@@ -69,6 +78,42 @@
 
   /* hunt is over — the secret trigger no longer matters */
   #wtm-trigger { display: none; }
+
+  /* info pack CTA — the primary action on the page now */
+  #wtm-infopack {
+    display: flex; flex-direction: column; gap: 4px;
+    max-width: 540px; margin: 12px auto 4px;
+    background: linear-gradient(180deg, #1b2630 0%, #141b22 100%);
+    border: 1px solid rgba(240,180,0,0.45);
+    border-radius: 12px;
+    padding: 18px 22px 16px;
+    text-align: center;
+    text-decoration: none;
+    color: #e8edf2;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  #wtm-infopack:hover {
+    border-color: rgba(240,180,0,0.85);
+    transform: translateY(-1px);
+    text-decoration: none;
+  }
+  #wtm-infopack .wtm-ip-eyebrow {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: #f0b400; font-weight: 700;
+  }
+  #wtm-infopack .wtm-ip-title {
+    font-size: 22px; font-weight: 800; color: #ffffff; margin-top: 4px;
+    letter-spacing: 0.02em;
+  }
+  #wtm-infopack .wtm-ip-sub {
+    font-size: 14px; color: #cfd6dd; margin: 6px 0 12px; line-height: 1.4;
+  }
+  #wtm-infopack .wtm-ip-cta {
+    display: inline-block; align-self: center;
+    background: #f0b400; color: #1a1207;
+    font-size: 14px; font-weight: 800; letter-spacing: 0.04em;
+    padding: 10px 22px; border-radius: 8px;
+  }
 
   /* solved banner */
   #wtm-solved {
