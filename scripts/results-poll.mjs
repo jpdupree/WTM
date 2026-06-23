@@ -52,10 +52,17 @@ async function poll() {
 
   const slices = buildSlices(overall, teamRows);
 
-  // Only write — and so only wake the pages' listeners — when something
-  // actually changed since the last push.
+  // Always touch updatedAt so the pages' 5-minute staleness gate doesn't
+  // trip during long no-change stretches (e.g. pre-race empty feed). PATCH
+  // only the updatedAt key when slices are unchanged so we don't churn the
+  // whole snapshot; PUT the full snapshot when something actually moved.
   const slicesJson = JSON.stringify(slices);
   if (slicesJson === lastPushed) {
+    const res = await fetch(`${DB}/results.json`, {
+      method: "PATCH",
+      body: JSON.stringify({ updatedAt: new Date().toISOString() }),
+    });
+    if (!res.ok) throw new Error(`Firebase heartbeat HTTP ${res.status}`);
     console.log(`${stamp()} — no change (${overall.length} athletes)`);
     return;
   }
