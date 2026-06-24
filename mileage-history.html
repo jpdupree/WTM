@@ -67,7 +67,7 @@
         <button type="button" data-mode="band">Bands</button>
       </div>
       <div id="hm"></div>
-      <p class="foot">* 2017–2018 are top-10 only (full fields not in source) — true counts are higher. No WTM held in 2020.</p>
+      <p class="foot">* 2017–2018 are top-10 only (full fields not in source) — true counts are higher. No WTM held in 2020. Striped cells (≥50 → ≥70 rows) are pending — historical counts at those marks being added.</p>
     </div>
   </main>
 
@@ -82,9 +82,12 @@
     const avgM=[13.9,30.6,44.7,35.7,35.9,45.3,89.0,85.5,42.9,56.3,49.6,43.0,49.2,47.4];
     const avgF=[15.2,26.0,41.7,32.5,28.5,40.4,76.5,64.5,36.5,53.2,46.9,38.1,45.3,47.4];
     const partial={2017:1,2018:1};
-    const thr=[115,110,105,100,95,90,85,80,75];
-    const men={2011:[0,0,0,0,0,0,0,0,0],2012:[0,0,0,0,0,1,1,3,3],2013:[0,0,0,1,4,6,10,15,36],2014:[0,0,0,0,2,3,4,7,16],2015:[0,0,0,0,2,3,5,12,23],2016:[0,0,1,4,9,11,14,22,58],2017:[0,1,2,2,3,4,6,10,10],2018:[0,0,0,2,2,3,6,8,10],2019:[0,0,1,4,5,7,9,19,47],2021:[1,2,3,6,6,7,11,16,47],2022:[0,0,2,5,7,10,14,19,44],2023:[0,0,1,5,5,8,11,19,36],2024:[1,2,3,9,14,16,22,35,87],2025:[0,1,3,4,5,7,12,23,55]};
-    const women={2011:[0,0,0,0,0,0,0,0,0],2012:[0,0,0,0,0,1,1,2,2],2013:[0,0,0,0,0,0,1,1,3],2014:[0,0,0,0,0,0,0,0,1],2015:[0,0,0,0,0,0,0,0,1],2016:[0,0,0,0,0,0,1,4,7],2017:[0,0,0,0,0,1,2,5,7],2018:[0,0,0,0,0,0,0,0,2],2019:[0,0,0,0,0,0,0,1,3],2021:[0,0,0,0,0,1,3,5,9],2022:[0,0,0,1,1,1,3,4,7],2023:[0,0,0,0,0,2,3,6,6],2024:[0,0,0,0,1,2,4,7,14],2025:[0,0,0,0,1,1,3,8,11]};
+    // Threshold list. null in a year's array = data not yet captured at
+    // that mile mark (renders as a "pending" cell).
+    const thr=[115,110,105,100,95,90,85,80,75,70,65,60,55,50];
+    const PAD=[null,null,null,null,null]; // placeholders for 70,65,60,55,50
+    const men={2011:[0,0,0,0,0,0,0,0,0,...PAD],2012:[0,0,0,0,0,1,1,3,3,...PAD],2013:[0,0,0,1,4,6,10,15,36,...PAD],2014:[0,0,0,0,2,3,4,7,16,...PAD],2015:[0,0,0,0,2,3,5,12,23,...PAD],2016:[0,0,1,4,9,11,14,22,58,...PAD],2017:[0,1,2,2,3,4,6,10,10,...PAD],2018:[0,0,0,2,2,3,6,8,10,...PAD],2019:[0,0,1,4,5,7,9,19,47,...PAD],2021:[1,2,3,6,6,7,11,16,47,...PAD],2022:[0,0,2,5,7,10,14,19,44,...PAD],2023:[0,0,1,5,5,8,11,19,36,...PAD],2024:[1,2,3,9,14,16,22,35,87,...PAD],2025:[0,1,3,4,5,7,12,23,55,...PAD]};
+    const women={2011:[0,0,0,0,0,0,0,0,0,...PAD],2012:[0,0,0,0,0,1,1,2,2,...PAD],2013:[0,0,0,0,0,0,1,1,3,...PAD],2014:[0,0,0,0,0,0,0,0,1,...PAD],2015:[0,0,0,0,0,0,0,0,1,...PAD],2016:[0,0,0,0,0,0,1,4,7,...PAD],2017:[0,0,0,0,0,1,2,5,7,...PAD],2018:[0,0,0,0,0,0,0,0,2,...PAD],2019:[0,0,0,0,0,0,0,1,3,...PAD],2021:[0,0,0,0,0,1,3,5,9,...PAD],2022:[0,0,0,1,1,1,3,4,7,...PAD],2023:[0,0,0,0,0,2,3,6,6,...PAD],2024:[0,0,0,0,1,2,4,7,14,...PAD],2025:[0,0,0,0,1,1,3,8,11,...PAD]};
 
     new Chart(document.getElementById('avgc'),{type:'line',
       data:{labels:ylab,datasets:[
@@ -96,15 +99,23 @@
           y:{title:{display:true,text:'avg miles in 24h',color:'#8b9aa8'},ticks:{color:'#8b9aa8'},grid:{color:'#2a3540'},suggestedMin:0}}}});
 
     function shade(v,base){
+      if(v===null||v===undefined) return ['pending','var(--muted)'];
       if(!v) return ['transparent','var(--muted)'];
       const a=v>=21?1:v>=11?.74:v>=6?.52:v>=3?.34:.2;
       const fg=a>=.52?'#0c1014':(base==='b'?'#cfe3ff':'#ffd4e1');
       const rgb=base==='b'?'78,163,255':'240,101,149';
       return [`rgba(${rgb},${a})`,fg];
     }
-    // thr is descending [115..75]; cumulative arrays align to it.
+    // thr is descending [115..50]; cumulative arrays align to it.
     // Exclusive band[i] = cum[i] - cum[i-1] (the next-higher mark); top row = cum[0].
-    function toBands(arr){ return arr.map((v,i)=> i===0 ? v : v-arr[i-1]); }
+    // null cells (data pending) propagate through bands as null.
+    function toBands(arr){ return arr.map((v,i)=> {
+      if(v===null||v===undefined) return null;
+      if(i===0) return v;
+      const prev=arr[i-1];
+      if(prev===null||prev===undefined) return null;
+      return v-prev;
+    }); }
     function rowLabel(i,mode){
       const t=thr[i];
       if(mode==='cum') return (t===75?'<b>≥75</b>':'≥'+t);
@@ -118,8 +129,13 @@
         years.forEach(y=>{
           const v=(mode==='cum'?data[y]:toBands(data[y]))[ri];
           const[bg,fg]=shade(v,base);
-          const desc=mode==='cum'?`reached ≥${t} mi`:`finished ${rowLabel(ri,mode).replace(/<[^>]+>/g,'')} mi`;
-          h+=`<div class="cell" title="${v} ${desc} in ${y}" style="background:${bg};color:${fg};font-weight:${v>=11?600:400}">${v||''}</div>`;});
+          const isPending=(v===null||v===undefined);
+          const desc=isPending?'data pending':(mode==='cum'?`reached ≥${t} mi`:`finished ${rowLabel(ri,mode).replace(/<[^>]+>/g,'')} mi`);
+          const display=isPending?'·':(v||'');
+          const style=isPending
+            ? `background:repeating-linear-gradient(45deg,#1d2630 0 4px,#161c23 4px 8px);color:#566472`
+            : `background:${bg};color:${fg};font-weight:${v>=11?600:400}`;
+          h+=`<div class="cell" title="${isPending?desc:v+' '+desc} in ${y}" style="${style}">${display}</div>`;});
       });
       return h+`</div></div>`;
     }

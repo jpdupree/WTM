@@ -19,6 +19,7 @@ let state = {
   sort: { key: "Rank", dir: 1 },
   fGender: "all",
   fAgeGroup: "all",
+  fSearch: "",
   expanded: new Set(),
 };
 
@@ -541,7 +542,28 @@ function renderOverall(slices) {
   ];
   const controls = document.createElement("div");
   controls.className = "controls";
+  // Search input — match against name, bib, and nation. Debounce isn't
+  // needed at this list size; we just re-render on every keystroke.
+  const searchInput = document.createElement("input");
+  searchInput.type = "search";
+  searchInput.placeholder = "Search name, bib, or nation…";
+  searchInput.value = state.fSearch;
+  searchInput.autocomplete = "off";
+  searchInput.spellcheck = false;
+  searchInput.className = "search";
+  searchInput.addEventListener("input", () => {
+    state.fSearch = searchInput.value;
+    render();
+    // Re-render destroys the DOM; pin focus back so the user can keep typing.
+    const next = document.querySelector("input.search");
+    if (next) {
+      next.focus();
+      const len = next.value.length;
+      next.setSelectionRange(len, len);
+    }
+  });
   controls.append(
+    labelled("Search", searchInput),
     labelled(
       "Gender",
       makeSelect(["all", "Male", "Female"], state.fGender, (v) => {
@@ -562,6 +584,13 @@ function renderOverall(slices) {
   let rows = all;
   if (state.fGender !== "all") rows = rows.filter((r) => genderOf(r) === state.fGender);
   if (state.fAgeGroup !== "all") rows = rows.filter((r) => ageGroupOf(r) === state.fAgeGroup);
+  const q = state.fSearch.trim().toLowerCase();
+  if (q) {
+    rows = rows.filter((r) => {
+      const hay = [r.Name, r.Bib, r.Nation].map((v) => String(v ?? "").toLowerCase());
+      return hay.some((s) => s.includes(q));
+    });
+  }
 
   const col = OVERALL_COLS.find((c) => c.key === state.sort.key) || OVERALL_COLS[0];
   rows = [...rows].sort((a, b) => {
