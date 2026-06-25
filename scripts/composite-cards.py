@@ -132,12 +132,106 @@ def position_xy(size, position: str, margin: int):
 
 def draw_outer_frame(card: Image.Image, color, width: int, inset: int):
     draw = ImageDraw.Draw(card)
-    # Rounded rectangle for a slightly softer feel.
     radius = max(12, inset // 2)
     draw.rounded_rectangle(
         (inset, inset, CARD_W - inset, CARD_H - inset),
         radius=radius, outline=tuple(color), width=width,
     )
+
+
+def draw_bottom_banner(card: Image.Image, cfg: dict, inset_for_frame: int):
+    """Solid race-name banner anchored to the bottom of the card.
+
+    If `outerFrame` is on, banner sits inside the inner frame edge; if off,
+    it runs flush to the canvas bottom. Two-line layout with refined
+    letter-spacing and a thin accent rule above the text.
+    """
+    height = int(cfg.get("bottomBannerHeight", 200))
+    color = tuple(cfg.get("bottomBannerColor", [255, 90, 0, 255]))
+    accent = tuple(cfg.get("bottomBannerAccent", [255, 255, 255, 230]))
+    text_color = tuple(cfg.get("bottomBannerTextColor", [255, 255, 255, 255]))
+    text = cfg.get("bottomBannerText", "WORLD'S TOUGHEST MUDDER 2026").upper()
+
+    # Inset banner from the rounded outer frame so it doesn't sit on top of it.
+    side_pad = inset_for_frame + 4 if cfg.get("outerFrame") else 0
+    bot_pad = inset_for_frame + 4 if cfg.get("outerFrame") else 0
+    x0 = side_pad
+    x1 = CARD_W - side_pad
+    y1 = CARD_H - bot_pad
+    y0 = y1 - height
+
+    overlay = Image.new("RGBA", card.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    # Two-stop vertical gradient — readable, but a touch of dimension.
+    top = tuple(min(255, int(c * 1.08)) if i < 3 else c for i, c in enumerate(color))
+    bot = tuple(max(0, int(c * 0.88)) if i < 3 else c for i, c in enumerate(color))
+    band_h = y1 - y0
+    for i in range(band_h):
+        t = i / max(1, band_h - 1)
+        line_color = tuple(int(top[j] * (1 - t) + bot[j] * t) for j in range(4))
+        od.line([(x0, y0 + i), (x1, y0 + i)], fill=line_color)
+    # Thin accent rule near the top of the banner.
+    rule_y = y0 + 18
+    rule_w = max(2, height // 80)
+    od.line([(x0 + 60, rule_y), (x1 - 60, rule_y)], fill=accent, width=rule_w)
+    card.alpha_composite(overlay)
+
+    # Two-line layout, wider tracking.
+    parts = text.split()
+    if len(parts) >= 3:
+        line1 = " ".join(parts[: len(parts) - 1])
+        line2 = parts[-1]
+    else:
+        line1, line2 = text, ""
+
+    draw = ImageDraw.Draw(card)
+    text_top = rule_y + 22
+    text_bot = y1 - 24
+    half = (text_bot - text_top) // 2
+    line1_box = (x0 + 40, text_top, x1 - 40, text_top + half + 6)
+    line2_box = (x0 + 40, text_top + half - 6, x1 - 40, text_bot)
+    # Tracked text (manual spacing for that condensed-display feel).
+    draw_tracked(draw, line1_box, line1, "Anton-Regular.ttf", 96, text_color, tracking=6)
+    if line2:
+        draw_tracked(draw, line2_box, line2, "Anton-Regular.ttf", 96, text_color, tracking=6)
+
+
+def draw_tracked(draw, box, text, font_name, max_size, fill, tracking: int = 0):
+    """Render text centred in `box` with extra inter-character spacing.
+
+    Shrinks the font until the tracked string fits the box width.
+    """
+    if not text:
+        return
+    left, top, right, bottom = box
+    max_w = right - left
+    max_h = bottom - top
+    size = max_size
+
+    def measure(font, s):
+        w = 0
+        for i, ch in enumerate(s):
+            bbox = draw.textbbox((0, 0), ch, font=font)
+            w += bbox[2] - bbox[0]
+            if i < len(s) - 1:
+                w += tracking
+        bbox = draw.textbbox((0, 0), s, font=font)
+        return w, bbox[3] - bbox[1]
+
+    while size > 14:
+        font = load_font(font_name, size)
+        w, h = measure(font, text)
+        if w <= max_w and h <= max_h:
+            break
+        size -= 4
+
+    w, h = measure(font, text)
+    x = left + (max_w - w) // 2
+    y = top + (max_h - h) // 2
+    for ch in text:
+        draw.text((x, y), ch, font=font, fill=fill)
+        bbox = draw.textbbox((0, 0), ch, font=font)
+        x += (bbox[2] - bbox[0]) + tracking
 
 
 def fit_text(draw, box, text, font_name, max_size, fill, anchor="lm"):
@@ -160,19 +254,24 @@ def fit_text(draw, box, text, font_name, max_size, fill, anchor="lm"):
 def render_card(athlete_path: Path, bg_master: Image.Image, cfg: dict,
                 logos: dict, meta: dict) -> Image.Image:
     card = bg_master.copy()
+    inset = int(cfg.get("outerFrameInset", 28))
+    banner_h = int(cfg.get("bottomBannerHeight", 200)) if cfg.get("bottomBanner") else 0
 
-    # Athlete cutout — contain-fit into the safe area (leaves room for logos).
+    # Athlete cutout — contain-fit into the area above the banner, anchored
+    # so the bottom of the athlete sits just above the banner edge.
     with Image.open(athlete_path) as athlete:
         athlete = athlete.convert("RGBA")
-        safe_h = int(CARD_H * 0.78)
+        bottom_clearance = banner_h + (inset + 4 if cfg.get("outerFrame") else 0) + 12
+        safe_top = (inset if cfg.get("outerFrame") else 0) + 20
+        safe_h = CARD_H - bottom_clearance - safe_top
         safe_w = int(CARD_W * 0.92)
         ath = fit_athlete(athlete, safe_w, safe_h)
         x = (CARD_W - ath.width) // 2
-        # Anchor bottom of the athlete a little above the OCR logo line.
-        y = int(CARD_H * 0.92) - ath.height
+        y = (CARD_H - bottom_clearance) - ath.height
         card.paste(ath, (x, y), ath)
 
-    # Logos on top.
+    # Optional bonus logos — usually unneeded since the step-and-repeat
+    # already carries WTM + OCR Report. Stays here for one-offs.
     for key in ("wtm", "ocr"):
         logo = logos.get(key)
         if logo is None:
@@ -182,27 +281,17 @@ def render_card(athlete_path: Path, bg_master: Image.Image, cfg: dict,
         x, y = position_xy(logo.size, pos, margin)
         card.alpha_composite(logo, dest=(x, y))
 
-    # Optional outer frame.
+    # Optional outer frame, drawn before the banner so the banner can sit
+    # tight against the inner edge of the frame.
     if cfg.get("outerFrame"):
         draw_outer_frame(card,
-                         cfg.get("outerFrameColor", [240, 180, 0, 255]),
-                         int(cfg.get("outerFrameWidth", 8)),
-                         int(cfg.get("outerFrameInset", 28)))
+                         cfg.get("outerFrameColor", [255, 90, 0, 255]),
+                         int(cfg.get("outerFrameWidth", 10)),
+                         inset)
 
-    # Optional on-card text.
-    if cfg.get("drawNameOnCard"):
-        draw = ImageDraw.Draw(card)
-        name = (meta.get("name") or "").upper()
-        bib = meta.get("bib", "")
-        # Sit just inside the outer frame.
-        inset = int(cfg.get("outerFrameInset", 28)) + 40
-        name_box = (inset, CARD_H - inset - 130, CARD_W - inset - 200, CARD_H - inset - 60)
-        bib_box = (CARD_W - inset - 200, CARD_H - inset - 130, CARD_W - inset, CARD_H - inset - 60)
-        fit_text(draw, name_box, name, "Anton-Regular.ttf", 80,
-                 (255, 255, 255, 255), anchor="lm")
-        fit_text(draw, bib_box, f"#{bib}", "Anton-Regular.ttf", 80,
-                 tuple(cfg.get("outerFrameColor", [240, 180, 0, 255])),
-                 anchor="rm")
+    # Bottom race-name banner.
+    if cfg.get("bottomBanner"):
+        draw_bottom_banner(card, cfg, inset)
 
     return card
 
