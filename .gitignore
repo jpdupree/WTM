@@ -2,3 +2,5 @@ scripts/larix-credentials.json
 scripts/feed-config.json
 scripts/vmix-config.json
 scripts/photos-config.json
+scripts/photos-process-config.json
+scripts/__pycache__/
