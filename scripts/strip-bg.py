@@ -40,6 +40,30 @@ HERE = Path(__file__).resolve().parent
 CFG_PATH = HERE / "photos-process-config.json"
 BIB_RE = re.compile(r"^(\d+)")
 
+# Final card dimensions — strip-bg.py outputs at this size so the athlete
+# slots straight into the composite without further sizing.
+CARD_W, CARD_H = 1080, 1350
+
+
+def frame_for_card(cut):
+    """Crop transparent padding, then place the athlete on a 1080x1350
+    transparent canvas, contain-fit and bottom-aligned. The bottom of the
+    athlete lands at the bottom of the canvas so the foreground banner
+    sits over their legs, not over empty space."""
+    bbox = cut.getbbox()
+    if bbox:
+        cut = cut.crop(bbox)
+    if cut.width == 0 or cut.height == 0:
+        return Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    scale = min(CARD_W / cut.width, CARD_H / cut.height)
+    new_size = (max(1, int(cut.width * scale)), max(1, int(cut.height * scale)))
+    cut = cut.resize(new_size, Image.LANCZOS)
+    canvas = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    x = (CARD_W - new_size[0]) // 2
+    y = CARD_H - new_size[1]
+    canvas.paste(cut, (x, y), cut)
+    return canvas
+
 
 def load_config():
     if not CFG_PATH.exists():
@@ -114,10 +138,10 @@ def main():
                 if img.mode not in {"RGB", "RGBA"}:
                     img = img.convert("RGBA")
                 cut = remove(img, session=session)
-                # rembg can return RGB if input was — force alpha so layered comps work.
                 if cut.mode != "RGBA":
                     cut = cut.convert("RGBA")
-                cut.save(out_path, "PNG", optimize=True)
+                framed = frame_for_card(cut)
+                framed.save(out_path, "PNG", optimize=True)
             print(f"  ✓  {bib:>4}  {src_path.name}  ->  {out_name}")
             processed += 1
         except Exception as exc:

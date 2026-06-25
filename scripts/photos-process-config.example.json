@@ -5,42 +5,17 @@
   "transparentFolder": "G:\\My Drive\\Live Coverage\\Race Brands\\Tough Mudder\\2026\\Athlete Photos",
   "cardsFolder": "G:\\My Drive\\Live Coverage\\Race Brands\\Tough Mudder\\2026\\Athlete Cards",
 
-  "backgroundPath": "templates/step-and-repeat.png",
+  "backgroundPath": "../templates/WTMOCRsteprepeat.png",
+  "foregroundPath": "../templates/foreground.png",
 
-  "wtmLogoPath": "",
-  "wtmLogoPosition": "top-left",
-  "wtmLogoMaxWidth": 320,
-  "wtmLogoMargin": 60,
-
-  "ocrLogoPath": "",
-  "ocrLogoPosition": "bottom-right",
-  "ocrLogoMaxWidth": 240,
-  "ocrLogoMargin": 60,
-
-  "outerFrame": false,
-  "outerFrameColor": [255, 90, 0, 255],
-  "outerFrameWidth": 10,
-  "outerFrameInset": 28,
-
-  "bottomBanner": true,
-  "bottomBannerText": "WORLD'S TOUGHEST MUDDER 2026",
-  "bottomBannerHeight": 200,
-  "bottomBannerColor": [255, 90, 0, 255],
-  "bottomBannerAccent": [255, 255, 255, 230],
-  "bottomBannerTextColor": [255, 255, 255, 255],
-
-  "athletesCsv": "../data/athletes.csv",
   "rembgModel": "u2net_human_seg",
 
   "_notes": [
-    "sourceFolder        — raw athlete photos with backgrounds. Filename must start with bib, e.g. '56.jpg' or '56 Joseph Rucco.jpg'.",
-    "transparentFolder   — strip-bg.py writes here. Doubles as the vMix solo-stats source.",
-    "cardsFolder         — 1080x1350 IG-ready composites land here.",
-    "backgroundPath      — your step-and-repeat PNG; cover-fit and centred. The provided one already carries the WTM + OCR Report logos.",
-    "wtmLogoPath / ocrLogoPath — leave empty if the step-and-repeat already has the logos baked in.",
-    "outerFrame          — true draws a 10px rounded TM-orange border 28px from the edge; false leaves the canvas clean to the edges.",
-    "bottomBanner        — solid race-name strip at the bottom (orange w/ slight gradient + accent rule).",
-    "bottomBannerText    — line wraps automatically; last word becomes line 2.",
-    "rembgModel          — 'u2net_human_seg' for people; 'birefnet-portrait' higher quality; 'u2netp' fastest."
+    "sourceFolder       — raw athlete photos with backgrounds. Filename must start with bib, e.g. '56.jpg' or '56 Joseph Rucco.jpg'.",
+    "transparentFolder  — strip-bg.py writes 1080x1350 transparent PNGs here, athlete bottom-aligned. Also feeds vMix solo-stats via build-athlete-photos.mjs.",
+    "cardsFolder        — composite-cards.py writes the final IG-ready cards here.",
+    "backgroundPath     — your step-and-repeat PNG; cover-fit and centred to 1080x1350.",
+    "foregroundPath     — your branded overlay PNG (banner + accent rules + 'WORLD'S TOUGHEST MUDDER 2026'). Transparent above the banner so background + athlete show through. Re-export from PSD any time the design changes; no code changes needed.",
+    "rembgModel         — 'u2net_human_seg' is tuned for people; 'birefnet-portrait' is higher quality but heavier; 'u2netp' is the fastest fallback."
   ]
 }
