@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Composite 1080x1350 athlete cards from transparent photos + branded template.
+"""Composite 1080x1350 athlete cards.
 
 Stage 2 of the athlete-card pipeline. For each transparent athlete PNG in
 transparentFolder, stacks:
     [step-and-repeat background]
-    [athlete cutout, fit to 1080x1350]
-    [branded foreground frame]
-    [name / bib / nation text drawn from athletesCsv]
+    [athlete cutout, contain-fit]
+    [WTM and OCR Report logos, positioned per config]
+    [optional rounded outer frame]
+    [optional bib + name text from athletesCsv]
 
 Output: a 1080x1350 PNG per bib in cardsFolder, ready for IG portrait posts.
 
@@ -38,15 +39,8 @@ CFG_PATH = HERE / "photos-process-config.json"
 CARD_W, CARD_H = 1080, 1350
 BIB_RE = re.compile(r"^(\d+)")
 
-# Text geometry — overridden by the foreground frame's slots. Defaults
-# assume a bottom info bar; tweak alongside the frame design.
-NAME_BOX = (60, 1175, 900, 1240)     # left, top, right, bottom
-TAG_BOX = (60, 1245, 900, 1290)
-BIB_BOX = (920, 1175, 1020, 1300)
-
-WHITE = (255, 255, 255, 255)
-ACCENT = (240, 180, 0, 255)          # OCR Report gold
-MUTED = (207, 214, 221, 255)
+POSITIONS = {"top-left", "top-center", "top-right",
+             "bottom-left", "bottom-center", "bottom-right"}
 
 
 def load_config():
@@ -64,9 +58,7 @@ def resolve(cfg_path: str) -> Path:
 
 
 def load_athletes(csv_path: Path):
-    """bib -> {name, nation, ag, tag} from a CSV with those columns."""
     if not csv_path.exists():
-        print(f"  warn: athletes CSV not found at {csv_path} — cards will lack on-card text")
         return {}
     out = {}
     with open(csv_path, newline="", encoding="utf-8-sig") as f:
@@ -77,14 +69,12 @@ def load_athletes(csv_path: Path):
             out[bib] = {
                 "name": (row.get("name") or row.get("Name") or "").strip(),
                 "nation": (row.get("nation") or row.get("Nation") or "").strip(),
-                "ag": (row.get("ag") or row.get("AgeGroup") or "").strip(),
                 "tag": (row.get("tag") or "").strip(),
             }
     return out
 
 
 def load_font(name: str, size: int):
-    """Try a few likely paths so the script runs cross-platform."""
     fonts_dir = HERE.parent / "assets" / "cards" / "fonts"
     for path in (fonts_dir / name, Path("C:/Windows/Fonts") / name, Path("/Library/Fonts") / name):
         if path.exists():
@@ -100,7 +90,6 @@ def load_font(name: str, size: int):
 
 def prepare_background(bg_path: Path) -> Image.Image:
     bg = Image.open(bg_path).convert("RGBA")
-    # Cover-fit (preserve aspect, fill the whole card, crop overflow).
     scale = max(CARD_W / bg.width, CARD_H / bg.height)
     new_size = (int(bg.width * scale), int(bg.height * scale))
     bg = bg.resize(new_size, Image.LANCZOS)
@@ -110,15 +99,48 @@ def prepare_background(bg_path: Path) -> Image.Image:
 
 
 def fit_athlete(athlete: Image.Image, max_w: int, max_h: int) -> Image.Image:
-    """Contain-fit the athlete into max_w x max_h, preserving aspect."""
     scale = min(max_w / athlete.width, max_h / athlete.height)
-    if scale < 1:
-        return athlete.resize((int(athlete.width * scale), int(athlete.height * scale)), Image.LANCZOS)
-    return athlete
+    new_size = (max(1, int(athlete.width * scale)),
+                max(1, int(athlete.height * scale)))
+    return athlete.resize(new_size, Image.LANCZOS)
+
+
+def fit_logo(logo: Image.Image, max_w: int) -> Image.Image:
+    if logo.width <= max_w:
+        return logo
+    scale = max_w / logo.width
+    return logo.resize((max_w, int(logo.height * scale)), Image.LANCZOS)
+
+
+def position_xy(size, position: str, margin: int):
+    w, h = size
+    if position not in POSITIONS:
+        position = "top-left"
+    vert, horiz = position.split("-")
+    if horiz == "left":
+        x = margin
+    elif horiz == "right":
+        x = CARD_W - margin - w
+    else:
+        x = (CARD_W - w) // 2
+    if vert == "top":
+        y = margin
+    else:
+        y = CARD_H - margin - h
+    return x, y
+
+
+def draw_outer_frame(card: Image.Image, color, width: int, inset: int):
+    draw = ImageDraw.Draw(card)
+    # Rounded rectangle for a slightly softer feel.
+    radius = max(12, inset // 2)
+    draw.rounded_rectangle(
+        (inset, inset, CARD_W - inset, CARD_H - inset),
+        radius=radius, outline=tuple(color), width=width,
+    )
 
 
 def fit_text(draw, box, text, font_name, max_size, fill, anchor="lm"):
-    """Render text inside box, shrinking the font until it fits."""
     if not text:
         return
     left, top, right, bottom = box
@@ -135,36 +157,52 @@ def fit_text(draw, box, text, font_name, max_size, fill, anchor="lm"):
     draw.text((x, y), text, font=font, fill=fill, anchor=anchor)
 
 
-def render_card(athlete_path: Path, bg_master: Image.Image, fg: Image.Image,
-                meta: dict) -> Image.Image:
+def render_card(athlete_path: Path, bg_master: Image.Image, cfg: dict,
+                logos: dict, meta: dict) -> Image.Image:
     card = bg_master.copy()
 
-    # Athlete cutout — fit to ~85% of the card (leave room for the bottom bar).
+    # Athlete cutout — contain-fit into the safe area (leaves room for logos).
     with Image.open(athlete_path) as athlete:
         athlete = athlete.convert("RGBA")
-        ath = fit_athlete(athlete, int(CARD_W * 0.9), int(CARD_H * 0.85))
+        safe_h = int(CARD_H * 0.78)
+        safe_w = int(CARD_W * 0.92)
+        ath = fit_athlete(athlete, safe_w, safe_h)
         x = (CARD_W - ath.width) // 2
-        y = max(0, int(CARD_H * 0.78) - ath.height)
+        # Anchor bottom of the athlete a little above the OCR logo line.
+        y = int(CARD_H * 0.92) - ath.height
         card.paste(ath, (x, y), ath)
 
-    # Branded frame on top.
-    if fg is not None:
-        card.alpha_composite(fg)
+    # Logos on top.
+    for key in ("wtm", "ocr"):
+        logo = logos.get(key)
+        if logo is None:
+            continue
+        pos = cfg.get(f"{key}LogoPosition", "top-left" if key == "wtm" else "bottom-right")
+        margin = int(cfg.get(f"{key}LogoMargin", 60))
+        x, y = position_xy(logo.size, pos, margin)
+        card.alpha_composite(logo, dest=(x, y))
 
-    # On-card text.
-    draw = ImageDraw.Draw(card)
-    fit_text(draw, NAME_BOX, meta.get("name", "").upper(),
-             "Anton-Regular.ttf", 80, WHITE, anchor="lm")
-    if meta.get("tag"):
-        fit_text(draw, TAG_BOX, meta["tag"].upper(),
-                 "Inter-Bold.ttf", 28, ACCENT, anchor="lm")
-    elif meta.get("nation"):
-        fit_text(draw, TAG_BOX, meta["nation"],
-                 "Inter-Regular.ttf", 28, MUTED, anchor="lm")
-    bib = meta.get("bib")
-    if bib:
-        fit_text(draw, BIB_BOX, f"#{bib}",
-                 "Anton-Regular.ttf", 80, ACCENT, anchor="rm")
+    # Optional outer frame.
+    if cfg.get("outerFrame"):
+        draw_outer_frame(card,
+                         cfg.get("outerFrameColor", [240, 180, 0, 255]),
+                         int(cfg.get("outerFrameWidth", 8)),
+                         int(cfg.get("outerFrameInset", 28)))
+
+    # Optional on-card text.
+    if cfg.get("drawNameOnCard"):
+        draw = ImageDraw.Draw(card)
+        name = (meta.get("name") or "").upper()
+        bib = meta.get("bib", "")
+        # Sit just inside the outer frame.
+        inset = int(cfg.get("outerFrameInset", 28)) + 40
+        name_box = (inset, CARD_H - inset - 130, CARD_W - inset - 200, CARD_H - inset - 60)
+        bib_box = (CARD_W - inset - 200, CARD_H - inset - 130, CARD_W - inset, CARD_H - inset - 60)
+        fit_text(draw, name_box, name, "Anton-Regular.ttf", 80,
+                 (255, 255, 255, 255), anchor="lm")
+        fit_text(draw, bib_box, f"#{bib}", "Anton-Regular.ttf", 80,
+                 tuple(cfg.get("outerFrameColor", [240, 180, 0, 255])),
+                 anchor="rm")
 
     return card
 
@@ -172,6 +210,16 @@ def render_card(athlete_path: Path, bg_master: Image.Image, fg: Image.Image,
 def bib_of(name: str):
     m = BIB_RE.match(name)
     return m.group(1) if m else None
+
+
+def maybe_load_logo(path_str, max_w):
+    if not path_str:
+        return None
+    p = resolve(path_str)
+    if not p.exists():
+        return None
+    logo = Image.open(p).convert("RGBA")
+    return fit_logo(logo, int(max_w))
 
 
 def main():
@@ -186,8 +234,6 @@ def main():
     src = Path(cfg["transparentFolder"])
     dst = Path(cfg["cardsFolder"])
     bg_path = resolve(cfg["backgroundPath"])
-    fg_path = resolve(cfg["foregroundPath"])
-    csv_path = resolve(cfg["athletesCsv"])
 
     for label, path in (("background", bg_path), ("transparent folder", src)):
         if not path.exists():
@@ -195,17 +241,22 @@ def main():
             sys.exit(1)
     dst.mkdir(parents=True, exist_ok=True)
 
+    logos = {
+        "wtm": maybe_load_logo(cfg.get("wtmLogoPath"), cfg.get("wtmLogoMaxWidth", 320)),
+        "ocr": maybe_load_logo(cfg.get("ocrLogoPath"), cfg.get("ocrLogoMaxWidth", 240)),
+    }
+
     print(f"  input:      {src}")
     print(f"  output:     {dst}")
     print(f"  background: {bg_path}")
-    print(f"  foreground: {fg_path if fg_path.exists() else '(missing — skipping branded frame)'}")
+    print(f"  WTM logo:   {'loaded' if logos['wtm'] else '(missing — skipping)'}")
+    print(f"  OCR logo:   {'loaded' if logos['ocr'] else '(missing — skipping)'}")
+    print(f"  frame:      {'on' if cfg.get('outerFrame') else 'off'}")
+    print(f"  name text:  {'on' if cfg.get('drawNameOnCard') else 'off'}")
     print()
 
     bg = prepare_background(bg_path)
-    fg = Image.open(fg_path).convert("RGBA") if fg_path.exists() else None
-    if fg is not None and fg.size != (CARD_W, CARD_H):
-        fg = fg.resize((CARD_W, CARD_H), Image.LANCZOS)
-    athletes = load_athletes(csv_path)
+    athletes = load_athletes(resolve(cfg.get("athletesCsv", "")))
 
     only = {b.strip() for b in args.only.split(",") if b.strip()}
     candidates = [p for p in sorted(src.iterdir())
@@ -230,7 +281,7 @@ def main():
         meta["bib"] = bib
 
         try:
-            card = render_card(ath_path, bg, fg, meta)
+            card = render_card(ath_path, bg, cfg, logos, meta)
             card.save(out_path, "PNG", optimize=True)
             print(f"  ✓  {bib:>4}  {meta.get('name', '')}  ->  {out_name}")
             rendered += 1
