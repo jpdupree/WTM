@@ -1,13 +1,15 @@
-import { LAP_MILES } from "./course-data.js";
 import { project, advance, markDim, SERIES_COLORS } from "./predict.js";
 import { startGraphic, rowByBib, predBibs, predFocus } from "./graphic-base.js";
 import { watchRabbits } from "./firebase.js";
 import { rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
+// Private 2026 course — same source as the commentator and rabbit pages.
+import * as course2026 from "./course-data-2026.js";
+const { LAP_MILES } = course2026;
 
 const banner = document.getElementById("g-banner");
 const rabbitsBtn = document.getElementById("g-rabbits");
-const cmap = createCourseMap("map");
+const cmap = createCourseMap("map", course2026);
 
 // Each athlete's last feed-accurate projection plus its capture time;
 // dots are extrapolated forward once per second and re-sync on each feed.

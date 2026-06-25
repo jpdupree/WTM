@@ -1,4 +1,7 @@
-import { LAP_MILES } from "./course-data.js";
+// Private 2026 course — only LAP_MILES is read here (no course shape
+// rendered), but kept in sync with the map / rabbit / commentator pages
+// so the projection math uses this year's exact lap length.
+import { LAP_MILES } from "./course-data-2026.js";
 import { project, drawChart, chartLegend, markDim, SERIES_COLORS } from "./predict.js";
 import { startGraphic, rowByBib, predBibs, predFocus } from "./graphic-base.js";
 
