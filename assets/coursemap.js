@@ -1,26 +1,34 @@
 // Leaflet course map shared by the map graphic and the commentator page.
 // Draws the WTM lap on an OpenStreetMap base layer with obstacle markers
 // and a movable set of athlete dots. Requires the Leaflet global `L`.
+//
+// By default reads ./course-data.js (the public course). Callers can
+// pass a second arg — any object exporting { COURSE, OBSTACLES, LAP_MILES }
+// — to render a different course without disturbing other consumers
+// (e.g. commentator.js uses course-data-2026.js while rabbit / graphics
+// keep the public file).
 
-import { COURSE, OBSTACLES, LAP_MILES } from "./course-data.js";
+import * as defaultCourse from "./course-data.js";
 
-// Interpolate [lat, lng] at a given mile along the lap.
-function latLngAtMile(mile) {
-  const last = COURSE[COURSE.length - 1];
-  if (mile <= 0) return [COURSE[0].lat, COURSE[0].lng];
-  if (mile >= last.mile) return [last.lat, last.lng];
-  for (let i = 1; i < COURSE.length; i++) {
-    if (COURSE[i].mile >= mile) {
-      const a = COURSE[i - 1];
-      const b = COURSE[i];
-      const f = (mile - a.mile) / ((b.mile - a.mile) || 1);
-      return [a.lat + (b.lat - a.lat) * f, a.lng + (b.lng - a.lng) * f];
+export function createCourseMap(elId, courseData = defaultCourse) {
+  const { COURSE, OBSTACLES, LAP_MILES } = courseData;
+
+  // Interpolate [lat, lng] at a given mile along the lap.
+  function latLngAtMile(mile) {
+    const last = COURSE[COURSE.length - 1];
+    if (mile <= 0) return [COURSE[0].lat, COURSE[0].lng];
+    if (mile >= last.mile) return [last.lat, last.lng];
+    for (let i = 1; i < COURSE.length; i++) {
+      if (COURSE[i].mile >= mile) {
+        const a = COURSE[i - 1];
+        const b = COURSE[i];
+        const f = (mile - a.mile) / ((b.mile - a.mile) || 1);
+        return [a.lat + (b.lat - a.lat) * f, a.lng + (b.lng - a.lng) * f];
+      }
     }
+    return [last.lat, last.lng];
   }
-  return [last.lat, last.lng];
-}
 
-export function createCourseMap(elId) {
   const map = L.map(elId);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,

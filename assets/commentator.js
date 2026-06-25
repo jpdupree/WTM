@@ -5,7 +5,11 @@ import {
   watchResults,
   watchVideoSubmissions,
 } from "./firebase.js";
-import { LAP_MILES } from "./course-data.js";
+// Private 2026 course — commentator-only for now. Other consumers
+// (rabbit, graphics) intentionally stay on course-data.js until the
+// course is published more broadly.
+import * as course2026 from "./course-data-2026.js";
+const { LAP_MILES } = course2026;
 import { project, drawChart, chartLegend, markDim, secToHms, pitStats, pitFmt, SERIES_COLORS } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
 import { rabbitList } from "./rabbits.js";
@@ -278,7 +282,7 @@ const predLegend = $("pred-legend");
 
 let cmap = null;
 try {
-  cmap = createCourseMap("pred-map");
+  cmap = createCourseMap("pred-map", course2026);
 } catch (err) {
   console.error("Course map failed to load:", err);
 }
