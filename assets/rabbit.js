@@ -2,7 +2,9 @@ import { watchRabbits, watchResults } from "./firebase.js";
 import { rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
 import { SERIES_COLORS } from "./predict.js";
-import { LAP_MILES } from "./course-data.js";
+// Private 2026 course — same source the commentator dashboard uses.
+import * as course2026 from "./course-data-2026.js";
+const { LAP_MILES } = course2026;
 
 const $ = (id) => document.getElementById(id);
 
@@ -11,7 +13,7 @@ let selected = [];
 
 let cmap = null;
 try {
-  cmap = createCourseMap("rabbit-map");
+  cmap = createCourseMap("rabbit-map", course2026);
 } catch (err) {
   console.error("Course map failed to load:", err);
 }
