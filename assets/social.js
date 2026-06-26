@@ -3,14 +3,19 @@ import { watchControl } from "./firebase.js";
 const stage = document.getElementById("stage");
 const emptyEl = document.getElementById("empty");
 
-// Instagram's embed page pops a "Never miss a post" login modal ~25-30s after
-// load. We keep two overlaid iframes: one is shown, one is hidden being
+// Instagram's embed page pops a "Never miss a post" login modal a fixed time
+// after load. We keep two overlaid iframes: one is shown, one is hidden being
 // refreshed. We swap them on a timer well before the modal can surface on the
 // visible one, so the audience never sees a reload flash or the login prompt.
-const REFRESH_MS = 18_000;
+//
+// IG keeps shortening that modal delay (was ~25-30s, now surfaces in the low
+// teens). A visible frame's content can age up to REFRESH_MS + READY_DELAY_MS
+// before it's swapped out, so keep that sum comfortably under the modal time.
+// If the modal ever reappears, drop REFRESH_MS further (6_000-7_000).
+const REFRESH_MS = 9_000;
 // IG's load event fires when the embed HTML lands; the post content needs a
 // beat more to actually render. Wait before crossfading in the back buffer.
-const READY_DELAY_MS = 1500;
+const READY_DELAY_MS = 1200;
 
 let refreshTimer = null;
 let currentSrc = null;
