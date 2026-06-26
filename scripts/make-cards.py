@@ -66,18 +66,32 @@ def prepare_background(bg_path: Path) -> Image.Image:
     return bg.crop((left, top, left + CARD_W, top + CARD_H))
 
 
-def frame_athlete(cut: Image.Image) -> Image.Image:
-    """Crop transparent padding, contain-fit, bottom-align on a 1080x1350 canvas."""
+def frame_athlete(cut: Image.Image, zoom: float = 1.0, anchor: str = "bottom") -> Image.Image:
+    """Crop transparent padding, scale, and place on a 1080x1350 canvas.
+
+    zoom   — 1.0 is plain contain-fit; >1 enlarges the subject to fill more
+             of the frame (overflow is cropped). Try 1.15-1.4 to fill better.
+    anchor — vertical placement: 'bottom' (default), 'center', or 'top'.
+             Horizontal is always centred.
+    """
     bbox = cut.getbbox()
     if bbox:
         cut = cut.crop(bbox)
     if cut.width == 0 or cut.height == 0:
         return Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
-    scale = min(CARD_W / cut.width, CARD_H / cut.height)
-    new_size = (max(1, int(cut.width * scale)), max(1, int(cut.height * scale)))
-    cut = cut.resize(new_size, Image.LANCZOS)
+    scale = min(CARD_W / cut.width, CARD_H / cut.height) * zoom
+    new_w = max(1, int(cut.width * scale))
+    new_h = max(1, int(cut.height * scale))
+    cut = cut.resize((new_w, new_h), Image.LANCZOS)
     canvas = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
-    canvas.paste(cut, ((CARD_W - new_size[0]) // 2, CARD_H - new_size[1]), cut)
+    x = (CARD_W - new_w) // 2
+    if anchor == "top":
+        y = 0
+    elif anchor == "center":
+        y = (CARD_H - new_h) // 2
+    else:  # bottom
+        y = CARD_H - new_h
+    canvas.paste(cut, (x, y), cut)  # PIL clips any overflow when zoom > 1
     return canvas
 
 
@@ -87,6 +101,10 @@ def main():
     ap.add_argument("--in-folder", default="", help="Process every image in this folder.")
     ap.add_argument("--out", default="", help="Output folder (defaults to cardsFolder in config).")
     ap.add_argument("--model", default=None, help="rembg model override (default from config).")
+    ap.add_argument("--scale", type=float, default=1.0,
+                    help="Subject zoom. 1.0 = contain-fit; >1 fills more of the frame (crops overflow). Try 1.2.")
+    ap.add_argument("--anchor", choices=["bottom", "center", "top"], default="bottom",
+                    help="Vertical placement of the subject. Default bottom.")
     ap.add_argument("--force", action="store_true", help="Overwrite existing output cards.")
     args = ap.parse_args()
 
@@ -138,7 +156,7 @@ def main():
                 if cut.mode != "RGBA":
                     cut = cut.convert("RGBA")
                 card = bg.copy()
-                card.alpha_composite(frame_athlete(cut))
+                card.alpha_composite(frame_athlete(cut, zoom=args.scale, anchor=args.anchor))
                 if fg is not None:
                     card.alpha_composite(fg)
                 card.save(out_path, "PNG", optimize=True)
