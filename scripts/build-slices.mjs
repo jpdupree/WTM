@@ -26,14 +26,23 @@ export async function fetchFeed(url) {
 // teams from the overall feed (which only lists individual members).
 export function buildSlices(overall, teamRows) {
   const sorted = [...overall].sort(byRank);
-  const sex = (r) => String(r.Sex).toLowerCase();
+  // Some feeds label the field Sex, others Gender; values may be m/f or
+  // male/female. Normalise both.
+  const sex = (r) => String(r.Sex ?? r.Gender ?? "").trim().toLowerCase();
+  const isMan = (r) => sex(r) === "m" || sex(r) === "male";
+  const isWoman = (r) => sex(r) === "f" || sex(r) === "female";
+  // Treat anyone not explicitly flagged as a team/relay entry as an
+  // individual — don't require Category to equal a specific string, since
+  // the feed's solo label varies year to year ("Individual", "Solo", or
+  // absent entirely). Only exclude rows whose Category clearly reads team.
+  const isTeam = (r) => /team|relay/i.test(String(r.Category ?? ""));
   const teams = teamRows
     ? [...teamRows].sort(byRank)
-    : subset(sorted, (r) => r.Category === "Team");
+    : subset(sorted, isTeam);
   return {
     overall: sorted,
-    men: subset(sorted, (r) => r.Category === "Individual" && sex(r) === "m"),
-    women: subset(sorted, (r) => r.Category === "Individual" && sex(r) === "f"),
+    men: subset(sorted, (r) => !isTeam(r) && isMan(r)),
+    women: subset(sorted, (r) => !isTeam(r) && isWoman(r)),
     teams,
   };
 }
