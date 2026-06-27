@@ -98,6 +98,66 @@ export function advance(p, elapsedSec) {
   return { ...p, miles, laps: Math.floor(miles / p.lapMiles) };
 }
 
+// --- live map placement ---------------------------------------------
+// The feed only updates an athlete's distance when they cross the mat
+// (once per ~lap), so between crossings they'd otherwise sit frozen on
+// the start/finish line. These helpers estimate how far they've run
+// since their last crossing so the map dot tracks them around the loop.
+
+// Parse a "h:mm:ss AM/PM" (or 24h "HH:mm:ss") time-of-day to seconds.
+function todToSec(tod) {
+  const m = String(tod ?? "").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const mi = parseInt(m[2], 10);
+  const s = m[3] ? parseInt(m[3], 10) : 0;
+  const ap = m[4] && m[4].toUpperCase();
+  if (ap === "PM" && h < 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return h * 3600 + mi * 60 + s;
+}
+
+// Current second-of-day in an IANA timezone (the event's local time).
+function nowSecOfDay(tz) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    }).formatToParts(new Date());
+    let h = 0, mi = 0, s = 0;
+    for (const p of parts) {
+      if (p.type === "hour") h = parseInt(p.value, 10) % 24;
+      else if (p.type === "minute") mi = parseInt(p.value, 10);
+      else if (p.type === "second") s = parseInt(p.value, 10);
+    }
+    return h * 3600 + mi * 60 + s;
+  } catch {
+    const d = new Date();
+    return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+  }
+}
+
+// Seconds since the athlete last crossed the timing mat, from LastSeenTOD,
+// in the event timezone. Handles the midnight rollover during the 24h
+// race. Null when there's no usable time-of-day.
+export function secondsSinceSeen(row, tz = "Europe/London") {
+  const cross = todToSec(row?.LastSeenTOD);
+  if (cross == null) return null;
+  const now = nowSecOfDay(tz);
+  return (((now - cross) % 86400) + 86400) % 86400;
+}
+
+// Where to draw an athlete on the loop: their last-crossed distance plus
+// how far they've likely run since, at their recent pace — capped just
+// short of a full lap so a stopped/resting athlete never laps the mat.
+export function mapMile(p, sinceSeenSec, lapMiles) {
+  if (!p) return 0;
+  let mile = p.miles || 0;
+  if (p.pace && sinceSeenSec > 0) {
+    mile += Math.min(sinceSeenSec / p.pace, lapMiles * 0.97);
+  }
+  return mile;
+}
+
 // --- Pit-time stats --------------------------------------------------
 
 // Total / average / count of an athlete's pit stops, from the feed's

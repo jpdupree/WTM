@@ -1,7 +1,7 @@
 import { watchRabbits, watchResults } from "./firebase.js";
 import { rabbitList } from "./rabbits.js";
 import { createCourseMap } from "./coursemap.js";
-import { SERIES_COLORS } from "./predict.js";
+import { SERIES_COLORS, project, secondsSinceSeen, mapMile } from "./predict.js";
 // Private 2026 course — same source the commentator dashboard uses.
 import * as course2026 from "./course-data-2026.js";
 const { LAP_MILES } = course2026;
@@ -46,9 +46,11 @@ function athleteEntries() {
   selected.forEach((bib, i) => {
     const r = rowByBib(bib);
     if (!r) return;
-    const miles = parseFloat(r.Distance) || (parseInt(r.Laps, 10) || 0) * LAP_MILES;
+    // Project past the last mat crossing so the dot tracks where the
+    // athlete actually is now, not where they last clocked a lap.
+    const p = project(r, 100, LAP_MILES);
     entries.push({
-      mile: miles,
+      mile: mapMile(p, secondsSinceSeen(r), LAP_MILES),
       label: String(r.Bib),
       color: SERIES_COLORS[i % SERIES_COLORS.length],
       name: r.Name || "",
@@ -129,6 +131,12 @@ $("ath-clear").addEventListener("click", () => {
   athResults.innerHTML = "";
   renderAthletes();
 });
+
+// Re-place athlete dots every few seconds so they glide along the loop
+// between feed updates (map only — leaves the athlete list DOM alone).
+setInterval(() => {
+  if (cmap && selected.length) cmap.setAthletes(athleteEntries());
+}, 5000);
 
 // Camera positions (from Larix Broadcaster) always show on the map.
 watchRabbits((obj) => {

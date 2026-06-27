@@ -10,7 +10,7 @@ import {
 // course is published more broadly.
 import * as course2026 from "./course-data-2026.js";
 const { LAP_MILES } = course2026;
-import { project, drawChart, chartLegend, markDim, secToHms, pitStats, pitFmt, SERIES_COLORS } from "./predict.js";
+import { project, drawChart, chartLegend, markDim, secToHms, pitStats, pitFmt, SERIES_COLORS, secondsSinceSeen, mapMile } from "./predict.js";
 import { createCourseMap } from "./coursemap.js";
 import { rabbitList } from "./rabbits.js";
 import { VMIX_LINKS } from "./links.js";
@@ -390,19 +390,32 @@ function predEntries() {
   return entries;
 }
 
+// Place the map dots from the current feed, projected forward to "now".
+// Called on every feed update and on a short timer so dots glide along
+// the loop between mat crossings instead of sitting on the start line.
+function updateMapDots() {
+  if (!cmap) return;
+  const entries = predEntries();
+  markDim(entries, pred.focus);
+  cmap.setAthletes(
+    entries.map((e) => ({
+      mile: mapMile(e.p, secondsSinceSeen(rowByBib(e.bib)), LAP_MILES),
+      label: e.bib,
+      color: e.color,
+      dim: e.dim,
+    })),
+  );
+}
+
+if (cmap) setInterval(updateMapDots, 5000);
+
 function renderPrediction() {
   const entries = predEntries();
   markDim(entries, pred.focus);
   drawChart(predChart, entries);
   predLegend.innerHTML = "";
   predLegend.appendChild(chartLegend(entries));
-  if (cmap) {
-    cmap.setAthletes(
-      entries.map((e) => ({
-        mile: e.p.miles, label: e.bib, color: e.color, dim: e.dim,
-      })),
-    );
-  }
+  updateMapDots();
 
   predReadout.innerHTML = "";
   if (entries.length === 0) {
