@@ -371,7 +371,10 @@ function renderGroupSections(wrap, groups, buckets) {
     const grid = document.createElement("div");
     grid.className = "ag-grid";
     for (const g of inGender) {
-      const rows = topN(buckets.get(g) || [], "AgeGroup").slice(0, 3);
+      // Sort each age group by overall standing (Rank), not the feed's
+      // internal "AgeGroup" id — that field isn't a placing, so sorting
+      // on it shuffled lower-mileage athletes above higher ones.
+      const rows = topN(buckets.get(g) || [], "Rank").slice(0, 3);
       grid.appendChild(ageGroupCard(g, rows));
     }
     section.appendChild(grid);
