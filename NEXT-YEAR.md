@@ -17,11 +17,19 @@ put each bonded connection on a **different carrier**.
 SIMs on the same carrier:
 
 - **Phone:** keep on **EE** (widest overall geographic footprint in rural UK).
-- **Hotspot:** put a **Vodafone** SIM in it (strongest second-place network
-  for UK rural coverage).
-- **Alternative:** if Vodafone is weak at the specific site, use **O2**
-  instead. **Avoid Three** for this — traditionally the weakest rural
-  footprint of the major UK providers.
+- **Hotspot:** **best option — a roaming / multi-network data SIM**, not a
+  standard retail single-network SIM. These don't lock to one carrier; they
+  hop to whichever network is strongest at each spot, which is exactly what
+  you want when moving around a rural course. Brands: **Anywhere SIM**,
+  **Datawizz**, **SimOptions**. This beats committing the hotspot to one
+  carrier that may be weak in a given field.
+- **If using single-network SIMs instead:** put **Vodafone** in the hotspot
+  (strongest second-place rural network), or **O2** if Vodafone is weak at
+  the site. **Avoid Three** — traditionally the weakest rural footprint of
+  the major UK providers.
+- Whatever's in the hotspot, keep it on a **different physical network than
+  the phone (EE)** — a roaming SIM that happens to camp on EE next to an EE
+  phone defeats the point; check which network it's actually on at the site.
 
 **Speedify settings when bonding mixed SIMs:**
 
